@@ -1,0 +1,26 @@
+{
+  "description": "동일 봉에서 SL/TP1 동시 조건 충족 시 SL 우선 처리 기대 결과",
+  "trades_count": 1,
+  "trades": [
+    {
+      "trade_id": 1,
+      "direction": "LONG",
+      "entry_price": 103.0,
+      "entry_timestamp": 1704067200,
+      "legs_count": 1,
+      "legs": [
+        {
+          "exit_type": "SL",
+          "qty_ratio": 1.0,
+          "comment": "두 번째 봉에서 high=120(TP1 조건), low=95(SL 조건) 동시 충족하지만 SL 우선"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "win_rate": 0.0,
+    "tp1_hit_rate": 0.0,
+    "be_exit_rate": 0.0
+  }
+}
+

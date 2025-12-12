@@ -1,0 +1,13 @@
+{
+  "strategy_name": "Simple Test Strategy D",
+  "description": "동일 봉에서 SL과 TP1 동시 조건 충족 (우선순위 테스트: SL 우선)",
+  "signals": [
+    {
+      "timestamp": 1704067200,
+      "direction": "LONG",
+      "stop_loss": 98.0,
+      "comment": "롱 진입 (entry=103, SL=98, TP1=110.5)"
+    }
+  ]
+}
+

@@ -1,0 +1,31 @@
+{
+  "description": "기본 롱 진입 → TP1 → BE 청산 시나리오 기대 결과",
+  "trades_count": 1,
+  "trades": [
+    {
+      "trade_id": 1,
+      "direction": "LONG",
+      "entry_price": 103.0,
+      "entry_timestamp": 1704067200,
+      "legs_count": 2,
+      "legs": [
+        {
+          "exit_type": "TP1",
+          "qty_ratio": 0.5,
+          "comment": "TP1 도달로 50% 청산"
+        },
+        {
+          "exit_type": "BE",
+          "qty_ratio": 0.5,
+          "comment": "반대 신호로 BE 청산"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "win_rate": 1.0,
+    "tp1_hit_rate": 1.0,
+    "be_exit_rate": 1.0
+  }
+}
+

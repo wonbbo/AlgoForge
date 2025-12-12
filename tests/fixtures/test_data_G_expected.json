@@ -1,0 +1,45 @@
+{
+  "description": "복합 시나리오 기대 결과",
+  "trades_count": 2,
+  "trades": [
+    {
+      "trade_id": 1,
+      "direction": "LONG",
+      "entry_price": 103.0,
+      "entry_timestamp": 1704067200,
+      "legs_count": 2,
+      "legs": [
+        {
+          "exit_type": "TP1",
+          "qty_ratio": 0.5,
+          "comment": "TP1 도달"
+        },
+        {
+          "exit_type": "BE",
+          "qty_ratio": 0.5,
+          "comment": "BE 청산 (SHORT 신호로)"
+        }
+      ]
+    },
+    {
+      "trade_id": 2,
+      "direction": "LONG",
+      "entry_price": 96.5,
+      "entry_timestamp": 1704070500,
+      "legs_count": 1,
+      "legs": [
+        {
+          "exit_type": "SL",
+          "qty_ratio": 1.0,
+          "comment": "SL 도달 (손실)"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "winning_trades": 1,
+    "losing_trades": 1,
+    "tp1_hit_rate": 0.5
+  }
+}
+

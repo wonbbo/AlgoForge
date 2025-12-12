@@ -1,0 +1,25 @@
+{
+  "strategy_name": "Simple Test Strategy E",
+  "description": "TP1 발생 봉에서 Reverse 신호 무시 테스트",
+  "signals": [
+    {
+      "timestamp": 1704067200,
+      "direction": "LONG",
+      "stop_loss": 98.0,
+      "comment": "롱 진입 (entry=103, SL=98, TP1=110.5)"
+    },
+    {
+      "timestamp": 1704067800,
+      "direction": "SHORT",
+      "stop_loss": 115.0,
+      "comment": "TP1 발생 봉에서 반대 신호 발생 → 무시되어야 함"
+    },
+    {
+      "timestamp": 1704068400,
+      "direction": "SHORT",
+      "stop_loss": 115.0,
+      "comment": "다음 봉에서 반대 신호 → BE 청산"
+    }
+  ]
+}
+

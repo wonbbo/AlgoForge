@@ -1,0 +1,13 @@
+{
+  "strategy_name": "Simple Test Strategy C",
+  "description": "롱 진입 → TP1 → SL(BE) 청산 시나리오",
+  "signals": [
+    {
+      "timestamp": 1704067200,
+      "direction": "LONG",
+      "stop_loss": 98.0,
+      "comment": "첫 번째 봉에서 롱 진입 (entry=103, SL=98, TP1=110.5)"
+    }
+  ]
+}
+

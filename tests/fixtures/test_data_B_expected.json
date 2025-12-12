@@ -1,0 +1,25 @@
+{
+  "description": "기본 숏 진입 → SL 청산 시나리오 기대 결과",
+  "trades_count": 1,
+  "trades": [
+    {
+      "trade_id": 1,
+      "direction": "SHORT",
+      "entry_price": 101.0,
+      "entry_timestamp": 1704067200,
+      "legs_count": 1,
+      "legs": [
+        {
+          "exit_type": "SL",
+          "qty_ratio": 1.0,
+          "comment": "SL 도달로 전량 청산 (이익 청산)"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "win_rate": 1.0,
+    "tp1_hit_rate": 0.0,
+    "be_exit_rate": 0.0
+  }
+}

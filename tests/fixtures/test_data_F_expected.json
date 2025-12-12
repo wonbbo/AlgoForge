@@ -1,0 +1,33 @@
+{
+  "description": "진입 조건 위반 스킵 테스트 기대 결과",
+  "trades_count": 1,
+  "trades": [
+    {
+      "trade_id": 1,
+      "direction": "LONG",
+      "entry_price": 107.0,
+      "entry_timestamp": 1704067500,
+      "legs_count": 2,
+      "legs": [
+        {
+          "exit_type": "TP1",
+          "qty_ratio": 0.5,
+          "comment": "정상 진입 후 TP1 도달 (entry=107, SL=102, TP1=114.5)"
+        },
+        {
+          "exit_type": "SL",
+          "qty_ratio": 0.5,
+          "comment": "TP1 후 SL(BE=107) 도달로 잔여 청산"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "win_rate": 1.0,
+    "tp1_hit_rate": 1.0,
+    "be_exit_rate": 0.0
+  },
+  "warnings_count": 1,
+  "comment": "첫 번째 신호는 SL 조건 위반으로 스킵됨"
+}
+

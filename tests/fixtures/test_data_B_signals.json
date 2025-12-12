@@ -1,0 +1,13 @@
+{
+  "strategy_name": "Simple Test Strategy B",
+  "description": "기본 숏 진입 → SL 청산 시나리오",
+  "signals": [
+    {
+      "timestamp": 1704067200,
+      "direction": "SHORT",
+      "stop_loss": 105.0,
+      "comment": "첫 번째 봉에서 숏 진입"
+    }
+  ]
+}
+

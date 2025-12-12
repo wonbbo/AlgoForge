@@ -1,0 +1,19 @@
+{
+  "strategy_name": "Simple Test Strategy F",
+  "description": "risk=0 진입 스킵 테스트",
+  "signals": [
+    {
+      "timestamp": 1704067200,
+      "direction": "LONG",
+      "stop_loss": 103.0,
+      "comment": "entry_price와 stop_loss가 동일하여 risk=0 → 진입 스킵"
+    },
+    {
+      "timestamp": 1704067500,
+      "direction": "LONG",
+      "stop_loss": 102.0,
+      "comment": "정상 진입 (risk > 0)"
+    }
+  ]
+}
+

@@ -1,0 +1,19 @@
+{
+  "strategy_name": "Simple Test Strategy A",
+  "description": "기본 롱 진입 → TP1 → BE 청산 시나리오",
+  "signals": [
+    {
+      "timestamp": 1704067200,
+      "direction": "LONG",
+      "stop_loss": 98.0,
+      "comment": "첫 번째 봉에서 롱 진입"
+    },
+    {
+      "timestamp": 1704068700,
+      "direction": "SHORT",
+      "stop_loss": 115.0,
+      "comment": "TP1 후 반대 신호 발생 → BE 청산"
+    }
+  ]
+}
+

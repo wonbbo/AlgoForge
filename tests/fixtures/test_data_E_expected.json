@@ -1,0 +1,33 @@
+{
+  "description": "TP1 발생 봉에서 Reverse 신호 무시 테스트 기대 결과",
+  "trades_count": 1,
+  "trades": [
+    {
+      "trade_id": 1,
+      "direction": "LONG",
+      "entry_price": 103.0,
+      "entry_timestamp": 1704067200,
+      "legs_count": 2,
+      "legs": [
+        {
+          "exit_type": "TP1",
+          "exit_timestamp": 1704067800,
+          "qty_ratio": 0.5,
+          "comment": "세 번째 봉에서 TP1 도달 (high=113 >= 110.5)"
+        },
+        {
+          "exit_type": "BE",
+          "exit_timestamp": 1704068400,
+          "qty_ratio": 0.5,
+          "comment": "다섯 번째 봉에서 BE 청산 (TP1 발생 봉의 reverse는 무시됨)"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "win_rate": 1.0,
+    "tp1_hit_rate": 1.0,
+    "be_exit_rate": 1.0
+  }
+}
+
