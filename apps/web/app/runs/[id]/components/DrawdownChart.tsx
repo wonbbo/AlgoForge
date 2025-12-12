@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts'
+import { createChart, ColorType, IChartApi, ISeriesApi, Time } from 'lightweight-charts'
 import type { Trade } from '@/lib/types'
 
 interface DrawdownChartProps {
@@ -86,14 +86,14 @@ export function DrawdownChart({ trades, initialBalance }: DrawdownChartProps) {
     if (!seriesRef.current || trades.length === 0) return
 
     // Drawdown 데이터 생성
-    const data: { time: number; value: number }[] = []
+    const data: { time: Time; value: number }[] = []
     let currentBalance = initialBalance
     let peak = initialBalance
 
     // 초기값 추가
     if (trades.length > 0) {
       data.push({
-        time: trades[0].entry_timestamp,
+        time: Math.floor(trades[0].entry_timestamp) as Time,
         value: 0,
       })
     }
@@ -115,7 +115,7 @@ export function DrawdownChart({ trades, initialBalance }: DrawdownChartProps) {
         const lastLeg = trade.legs[trade.legs.length - 1]
         if (lastLeg) {
           data.push({
-            time: lastLeg.exit_timestamp,
+            time: Math.floor(lastLeg.exit_timestamp) as Time,
             value: -drawdown, // 음수로 표시 (아래로 내려가는 것이 손실)
           })
         }
