@@ -78,6 +78,19 @@
   - 핵심 기능
   - 테스트 시나리오
 
+### Phase 6: 고급 기능 및 UI 개선
+- **`Phase6_Implementation_Report.md`**
+  - 상세 구현 내용
+  - Reverse 설정
+  - Hook 설정 (MVP 비활성화)
+  - 지표 ID 편집기
+  - Validation 강화
+
+- **`Phase6_Summary.md`**
+  - 한눈에 보는 요약
+  - 핵심 기능
+  - 테스트 시나리오
+
 ### 설계 문서
 - **`AlgoForge_Draft_to_JSON_Rules.md`**
   - Draft → JSON 변환 규칙
@@ -195,12 +208,19 @@ http://localhost:3000/strategies/builder
 - ✅ Toast 알림 추가
 - ✅ Run 상세 페이지 개선
 
-### Phase 6: 고급 기능 ⏳ (선택)
-- ⏳ 실시간 Run 상태 업데이트
-- ⏳ Trade 필터링 및 정렬
-- ⏳ Metrics 비교
-- ⏳ 데이터 내보내기
-- ⏳ 추가 차트
+### Phase 6: 고급 기능 및 UI 개선 ✅
+- ✅ Reverse 설정 컴포넌트 구현
+- ✅ Hook 설정 컴포넌트 구현 (MVP 비활성화)
+- ✅ 지표 ID 편집기 구현
+- ✅ Validation 규칙 강화
+- ✅ Switch 컴포넌트 추가
+- ✅ 빌드 및 테스트 완료
+
+### Phase 7: 전략 테스트 및 최적화 ⏳ (선택)
+- ⏳ 전략 템플릿 저장/불러오기
+- ⏳ 전략 복제 기능
+- ⏳ 전략 비교 기능
+- ⏳ 성능 최적화
 
 ### Phase 8: 테스트 ⏳
 - ⏳ 단위 테스트
@@ -245,6 +265,7 @@ http://localhost:3000/strategies/builder
 4. `Phase3_Summary.md` - Phase 3 요약
 5. `Phase4_Summary.md` - Phase 4 요약
 6. `Phase5_Summary.md` - Phase 5 요약
+7. `Phase6_Summary.md` - Phase 6 요약
 
 ### 상세 내용이 필요한 경우
 1. `Phase1_Implementation_Report.md` - Phase 1 상세
@@ -252,7 +273,8 @@ http://localhost:3000/strategies/builder
 3. `Phase3_Implementation_Report.md` - Phase 3 상세
 4. `Phase4_Implementation_Report.md` - Phase 4 상세
 5. `Phase5_Implementation_Report.md` - Phase 5 상세
-6. `AlgoForge_Strategy_Builder_Implementation_Guide_v1.0.md` - 전체 가이드
+6. `Phase6_Implementation_Report.md` - Phase 6 상세
+7. `AlgoForge_Strategy_Builder_Implementation_Guide_v1.0.md` - 전체 가이드
 
 ### 설계 문서가 필요한 경우
 1. `AlgoForge_UI_Wireframe.md` - UI 와이어프레임

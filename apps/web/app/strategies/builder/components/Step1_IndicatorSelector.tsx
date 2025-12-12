@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, TrendingUp, Activity, BarChart3 } from 'lucide-react';
+import { IndicatorIdEditor } from './IndicatorIdEditor';
 import type { IndicatorDraft } from '@/types/strategy-draft';
 
 interface Step1Props {
@@ -169,16 +170,23 @@ export function Step1_IndicatorSelector({
                   <div className="space-y-3">
                     {/* 지표 헤더 */}
                     <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-semibold text-primary">
-                            {indicator.id}
-                          </span>
-                          <span className="text-sm text-muted-foreground">-</span>
-                          <span className="text-sm font-medium">
-                            {catalog.name}
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-2 flex-1">
+                        {/* ID 편집기 */}
+                        <IndicatorIdEditor
+                          currentId={indicator.id}
+                          existingIds={indicators.map(i => i.id)}
+                          onUpdate={(newId) => {
+                            const updated: IndicatorDraft = {
+                              ...indicator,
+                              id: newId
+                            };
+                            onUpdateIndicator(indicator.id, updated);
+                          }}
+                        />
+                        <span className="text-sm text-muted-foreground">-</span>
+                        <span className="text-sm font-medium">
+                          {catalog.name}
+                        </span>
                       </div>
                       <Button 
                         variant="ghost" 
