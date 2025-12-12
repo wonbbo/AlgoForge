@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 import logging
 
 from apps.api.db.database import get_database
-from apps.api.db.repositories import StrategyRepository
+from apps.api.db.repositories import StrategyRepository, RunRepository
 from apps.api.db.utils import calculate_strategy_hash
 from apps.api.schemas import StrategyCreate, StrategyResponse, StrategyList
 from apps.api.utils.exceptions import StrategyNotFoundError, InvalidDataError
@@ -122,25 +122,50 @@ async def delete_strategy(strategy_id: int):
     
     Args:
         strategy_id: 전략 ID
+        
+    Raises:
+        HTTPException 409: 해당 전략으로 생성된 Run이 존재하는 경우
     """
     try:
         db = get_database()
-        repo = StrategyRepository(db)
+        strategy_repo = StrategyRepository(db)
+        run_repo = RunRepository(db)
         
         # 전략 조회
-        strategy = repo.get_by_id(strategy_id)
+        strategy = strategy_repo.get_by_id(strategy_id)
         
         if not strategy:
             raise StrategyNotFoundError(strategy_id)
         
+        # 연관된 Run 개수 확인
+        related_runs = run_repo.get_by_strategy(strategy_id)
+        
+        if related_runs:
+            # Run이 존재하면 삭제 차단
+            run_count = len(related_runs)
+            error_message = f"이 전략으로 생성된 Run이 {run_count}개 존재합니다. 전략을 삭제하려면 먼저 관련 Run을 삭제해주세요."
+            
+            logger.warning(f"Strategy deletion blocked: ID={strategy_id}, related_runs={run_count}")
+            
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": error_message,
+                    "strategy_id": strategy_id,
+                    "related_runs_count": run_count
+                }
+            )
+        
         # 데이터베이스에서 삭제
-        repo.delete(strategy_id)
+        strategy_repo.delete(strategy_id)
         
         logger.info(f"Strategy deleted: ID={strategy_id}")
         
         return None
         
     except StrategyNotFoundError:
+        raise
+    except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to delete strategy {strategy_id}: {str(e)}", exc_info=True)

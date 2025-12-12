@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, GitBranch, Trash2, Wrench } from "lucide-react"
+import { Plus, GitBranch, Trash2, Wrench, Eye } from "lucide-react"
 import { strategyApi } from "@/lib/api-client"
 import type { Strategy } from "@/lib/types"
 import { formatDate } from "@/lib/utils"
@@ -89,18 +89,31 @@ export default function StrategiesPage() {
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('정말로 삭제하시겠습니까?')) return
+  async function handleDelete(strategy: Strategy) {
+    if (!confirm(`정말로 "${strategy.name}" 전략을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
 
     try {
-      await strategyApi.delete(id)
+      await strategyApi.delete(strategy.strategy_id)
       toast.success('전략이 삭제되었습니다')
       await loadStrategies()
     } catch (error: any) {
       console.error('Failed to delete strategy:', error)
-      toast.error('전략 삭제에 실패했습니다', {
-        description: error.message
-      })
+      
+      // 409 에러: Run이 존재하는 경우
+      if (error.status === 409) {
+        const detail = error.details || {}
+        const runCount = detail.related_runs_count || '여러'
+        const message = detail.message || `이 전략으로 생성된 Run이 ${runCount}개 존재합니다.`
+        
+        toast.error('전략을 삭제할 수 없습니다', {
+          description: message,
+          duration: 5000
+        })
+      } else {
+        toast.error('전략 삭제에 실패했습니다', {
+          description: error.message
+        })
+      }
     }
   }
 
@@ -234,13 +247,24 @@ export default function StrategiesPage() {
                       {formatDate(strategy.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(strategy.strategy_id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => router.push(`/strategies/${strategy.strategy_id}`)}
+                          title="상세 보기"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(strategy)}
+                          title="삭제"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

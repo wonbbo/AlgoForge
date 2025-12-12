@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS runs (
     started_at INTEGER,
     completed_at INTEGER,
     run_artifacts TEXT,  -- JSON (warnings 등)
-    FOREIGN KEY (dataset_id) REFERENCES datasets(dataset_id),
-    FOREIGN KEY (strategy_id) REFERENCES strategies(strategy_id)
+    FOREIGN KEY (dataset_id) REFERENCES datasets(dataset_id) ON DELETE RESTRICT,
+    FOREIGN KEY (strategy_id) REFERENCES strategies(strategy_id) ON DELETE RESTRICT
 );
 
 -- trades 테이블
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS trades (
     take_profit_1 REAL NOT NULL,
     is_closed INTEGER NOT NULL DEFAULT 0,
     total_pnl REAL,
-    FOREIGN KEY (run_id) REFERENCES runs(run_id)
+    FOREIGN KEY (run_id) REFERENCES runs(run_id) ON DELETE CASCADE
 );
 
 -- trade_legs 테이블
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS trade_legs (
     exit_price REAL NOT NULL,
     qty_ratio REAL NOT NULL,
     pnl REAL NOT NULL,
-    FOREIGN KEY (trade_id) REFERENCES trades(trade_id)
+    FOREIGN KEY (trade_id) REFERENCES trades(trade_id) ON DELETE CASCADE
 );
 
 -- metrics 테이블
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS metrics (
     max_drawdown REAL NOT NULL,
     score REAL NOT NULL,
     grade TEXT NOT NULL,
-    FOREIGN KEY (run_id) REFERENCES runs(run_id)
+    FOREIGN KEY (run_id) REFERENCES runs(run_id) ON DELETE CASCADE
 );
 
 -- 인덱스

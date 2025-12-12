@@ -422,16 +422,42 @@ class RunRepository:
     
     def delete(self, run_id: int) -> int:
         """
-        Run 삭제
+        Run 삭제 (관련된 모든 데이터를 함께 삭제)
         
         Args:
             run_id: Run ID
             
         Returns:
-            int: 삭제된 행 수
+            int: 삭제된 run 행 수
+            
+        Note:
+            Foreign Key 제약 조건 때문에 다음 순서로 삭제합니다:
+            1. trade_legs (trade_id를 통해)
+            2. trades (run_id를 통해)
+            3. metrics (run_id를 통해)
+            4. runs
         """
-        query = "DELETE FROM runs WHERE run_id = ?"
-        return self.db.execute_delete(query, (run_id,))
+        # 1. 이 Run의 모든 trade_id 조회
+        trades_query = "SELECT trade_id FROM trades WHERE run_id = ?"
+        trades = self.db.execute_query(trades_query, (run_id,))
+        
+        # 2. 각 trade의 trade_legs 삭제
+        for trade in trades:
+            trade_id = trade["trade_id"]
+            legs_query = "DELETE FROM trade_legs WHERE trade_id = ?"
+            self.db.execute_delete(legs_query, (trade_id,))
+        
+        # 3. trades 삭제
+        trades_delete_query = "DELETE FROM trades WHERE run_id = ?"
+        self.db.execute_delete(trades_delete_query, (run_id,))
+        
+        # 4. metrics 삭제
+        metrics_query = "DELETE FROM metrics WHERE run_id = ?"
+        self.db.execute_delete(metrics_query, (run_id,))
+        
+        # 5. run 삭제
+        run_query = "DELETE FROM runs WHERE run_id = ?"
+        return self.db.execute_delete(run_query, (run_id,))
 
 
 class TradeRepository:

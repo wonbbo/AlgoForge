@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Plus, PlayCircle, Eye } from "lucide-react"
+import { Plus, PlayCircle, Eye, RefreshCw, Trash2 } from "lucide-react"
 import { runApi, datasetApi, strategyApi } from "@/lib/api-client"
 import type { Run, Dataset, Strategy } from "@/lib/types"
 import { formatTimestamp, getStatusColor } from "@/lib/utils"
@@ -40,6 +40,7 @@ export default function RunsPage() {
   }, [])
 
   async function loadData() {
+    setLoading(true)
     try {
       const [runsData, datasetsData, strategiesData] = await Promise.all([
         runApi.list(),
@@ -88,6 +89,57 @@ export default function RunsPage() {
     }
   }
 
+  // 재수행 함수
+  async function handleRerun(run: Run) {
+    const datasetName = getDatasetName(run.dataset_id)
+    const strategyName = getStrategyName(run.strategy_id)
+    
+    if (!confirm(`동일한 설정으로 새 Run을 생성하시겠습니까?\n\n데이터셋: ${datasetName}\n전략: ${strategyName}`)) {
+      return
+    }
+
+    try {
+      const createdRun = await runApi.create({
+        dataset_id: run.dataset_id,
+        strategy_id: run.strategy_id,
+      })
+      
+      toast.success('Run이 재생성되었습니다!', {
+        description: `Run ID: ${createdRun.run_id} - 백테스트가 시작되었습니다.`
+      })
+      
+      await loadData()
+    } catch (error: any) {
+      console.error('Failed to rerun:', error)
+      toast.error('Run 재수행에 실패했습니다', {
+        description: error.message
+      })
+    }
+  }
+
+  // 삭제 함수
+  async function handleDelete(run: Run) {
+    const datasetName = getDatasetName(run.dataset_id)
+    const strategyName = getStrategyName(run.strategy_id)
+    
+    if (!confirm(`정말로 이 Run을 삭제하시겠습니까?\n\nRun ID: #${run.run_id}\n데이터셋: ${datasetName}\n전략: ${strategyName}\n\n이 작업은 되돌릴 수 없습니다.`)) {
+      return
+    }
+
+    try {
+      await runApi.delete(run.run_id)
+      toast.success('Run이 삭제되었습니다', {
+        description: `Run ID: #${run.run_id}`
+      })
+      await loadData()
+    } catch (error: any) {
+      console.error('Failed to delete run:', error)
+      toast.error('Run 삭제에 실패했습니다', {
+        description: error.message
+      })
+    }
+  }
+
   function getDatasetName(datasetId: number): string {
     return datasets.find(d => d.dataset_id === datasetId)?.name || `Dataset #${datasetId}`
   }
@@ -106,13 +158,23 @@ export default function RunsPage() {
             백테스트 실행 내역을 확인하세요
           </p>
         </div>
-        <Button 
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          disabled={datasets.length === 0 || strategies.length === 0}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Run 생성
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => loadData()}
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            새로고침
+          </Button>
+          <Button 
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            disabled={datasets.length === 0 || strategies.length === 0}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Run 생성
+          </Button>
+        </div>
       </div>
 
       {/* 안내 메시지 */}
@@ -253,11 +315,29 @@ export default function RunsPage() {
                       {run.started_at ? formatTimestamp(run.started_at) : '-'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Link href={`/runs/${run.run_id}`}>
-                        <Button variant="ghost" size="icon">
-                          <Eye className="h-4 w-4" />
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/runs/${run.run_id}`}>
+                          <Button variant="ghost" size="icon" title="상세 보기">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleRerun(run)}
+                          title="재수행"
+                        >
+                          <RefreshCw className="h-4 w-4" />
                         </Button>
-                      </Link>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleDelete(run)}
+                          title="삭제"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
