@@ -17,6 +17,7 @@ import { strategyApi } from '@/lib/api-client';
 import { StrategyHeader } from './components/StrategyHeader';
 import { StepWizard } from './components/StepWizard';
 import { JsonPreviewPanel } from './components/JsonPreviewPanel';
+import { TemplateManager } from './components/TemplateManager';
 
 /**
  * 전략 빌더 페이지
@@ -46,6 +47,18 @@ export default function StrategyBuilderPage() {
     // 실시간 Validation
     const validationResult = validateDraft(newDraft);
     setErrors(validationResult.errors);
+  };
+  
+  // 템플릿 불러오기 핸들러
+  const handleLoadTemplate = (loadedDraft: StrategyDraft) => {
+    setDraft(loadedDraft);
+    
+    // Validation 실행
+    const validationResult = validateDraft(loadedDraft);
+    setErrors(validationResult.errors);
+    
+    // 첫 번째 Step으로 이동
+    setCurrentStep('step1');
   };
   
   // 저장 핸들러
@@ -99,10 +112,20 @@ export default function StrategyBuilderPage() {
     <div className="container mx-auto p-6">
       {/* 헤더 */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">전략 빌더</h1>
-        <p className="text-muted-foreground mt-2">
-          JSON 지식 없이도 직관적으로 전략을 만들 수 있습니다.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">전략 빌더</h1>
+            <p className="text-muted-foreground mt-2">
+              JSON 지식 없이도 직관적으로 전략을 만들 수 있습니다.
+            </p>
+          </div>
+          
+          {/* 템플릿 관리자 */}
+          <TemplateManager 
+            draft={draft} 
+            onLoadTemplate={handleLoadTemplate}
+          />
+        </div>
       </div>
       
       {/* 전략 기본 정보 */}

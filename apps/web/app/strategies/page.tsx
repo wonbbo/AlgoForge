@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, GitBranch, Trash2, Wrench, Eye } from "lucide-react"
+import { Plus, GitBranch, Trash2, Wrench, Eye, Copy } from "lucide-react"
 import { strategyApi } from "@/lib/api-client"
 import type { Strategy } from "@/lib/types"
 import { formatDate } from "@/lib/utils"
@@ -86,6 +86,28 @@ export default function StrategiesPage() {
       })
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function handleClone(strategy: Strategy) {
+    try {
+      // 전략을 복제하여 저장
+      const clonedStrategy = await strategyApi.create({
+        name: `${strategy.name} (복사본)`,
+        description: strategy.description ? `${strategy.description} (복사본)` : '',
+        definition: strategy.definition,
+      })
+      
+      toast.success('전략이 복제되었습니다', {
+        description: clonedStrategy.name
+      })
+      
+      await loadStrategies()
+    } catch (error: any) {
+      console.error('Failed to clone strategy:', error)
+      toast.error('전략 복제에 실패했습니다', {
+        description: error.message
+      })
     }
   }
 
@@ -255,6 +277,14 @@ export default function StrategiesPage() {
                           title="상세 보기"
                         >
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleClone(strategy)}
+                          title="복제"
+                        >
+                          <Copy className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
