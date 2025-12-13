@@ -237,6 +237,7 @@ export interface EntryDraft {
  * 조건 Draft
  * 
  * 예: "ema_fast" > "ema_slow"
+ * 예: "close" > "ema_20" (OHLCV 사용)
  */
 export interface ConditionDraft {
   // 임시 ID (UI 렌더링용)
@@ -244,8 +245,8 @@ export interface ConditionDraft {
   
   // 좌변
   left: {
-    type: 'indicator' | 'number';
-    value: string | number;  // indicator면 id, number면 숫자
+    type: 'indicator' | 'price' | 'number';
+    value: string | number;  // indicator면 id, price면 'open'|'high'|'low'|'close'|'volume', number면 숫자
   };
   
   // 연산자
@@ -253,7 +254,7 @@ export interface ConditionDraft {
   
   // 우변
   right: {
-    type: 'indicator' | 'number';
+    type: 'indicator' | 'price' | 'number';
     value: string | number;
   };
 }
@@ -584,6 +585,7 @@ interface ConditionRowProps {
  * 조건 Row (문장형 UI)
  * 
  * 예: [ema_fast] [>] [ema_slow]
+ * 예: [close] [>] [ema_20] (OHLCV 사용)
  */
 export function ConditionRow({ 
   condition, 
@@ -601,33 +603,72 @@ export function ConditionRow({
     { value: 'cross_below', label: 'cross below (하향돌파)' }
   ];
   
+  // OHLCV 옵션
+  const ohlcvOptions = [
+    { value: 'open', label: 'Open (시가)' },
+    { value: 'high', label: 'High (고가)' },
+    { value: 'low', label: 'Low (저가)' },
+    { value: 'close', label: 'Close (종가)' },
+    { value: 'volume', label: 'Volume (거래량)' }
+  ];
+  
   return (
     <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
       {/* 좌변 */}
       <Select
         value={condition.left.value.toString()}
         onValueChange={(value) => {
-          // indicator 또는 number 판별
-          const isNumber = !isNaN(Number(value));
-          onChange({
-            ...condition,
-            left: {
-              type: isNumber ? 'number' : 'indicator',
-              value: isNumber ? Number(value) : value
-            }
-          });
+          // price, indicator, number 판별
+          if (value === '__number__') {
+            onChange({
+              ...condition,
+              left: { type: 'number', value: 0 }
+            });
+          } else if (['open', 'high', 'low', 'close', 'volume'].includes(value)) {
+            onChange({
+              ...condition,
+              left: { type: 'price', value: value }
+            });
+          } else {
+            onChange({
+              ...condition,
+              left: { type: 'indicator', value: value }
+            });
+          }
         }}
       >
         <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="좌변 선택" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="__number__">숫자 입력</SelectItem>
+          {/* OHLCV 옵션 */}
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            OHLCV
+          </div>
+          {ohlcvOptions.map(opt => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+          
+          {/* 구분선 */}
+          <div className="h-px bg-border my-1" />
+          
+          {/* 지표 옵션 */}
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            지표
+          </div>
           {indicators.map(ind => (
             <SelectItem key={ind.id} value={ind.id}>
               {ind.id} ({ind.type})
             </SelectItem>
           ))}
+          
+          {/* 구분선 */}
+          <div className="h-px bg-border my-1" />
+          
+          {/* 숫자 입력 */}
+          <SelectItem value="__number__">숫자 입력</SelectItem>
         </SelectContent>
       </Select>
       
@@ -665,26 +706,57 @@ export function ConditionRow({
       <Select
         value={condition.right.value.toString()}
         onValueChange={(value) => {
-          const isNumber = !isNaN(Number(value));
-          onChange({
-            ...condition,
-            right: {
-              type: isNumber ? 'number' : 'indicator',
-              value: isNumber ? Number(value) : value
-            }
-          });
+          // price, indicator, number 판별
+          if (value === '__number__') {
+            onChange({
+              ...condition,
+              right: { type: 'number', value: 0 }
+            });
+          } else if (['open', 'high', 'low', 'close', 'volume'].includes(value)) {
+            onChange({
+              ...condition,
+              right: { type: 'price', value: value }
+            });
+          } else {
+            onChange({
+              ...condition,
+              right: { type: 'indicator', value: value }
+            });
+          }
         }}
       >
         <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="우변 선택" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="__number__">숫자 입력</SelectItem>
+          {/* OHLCV 옵션 */}
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            OHLCV
+          </div>
+          {ohlcvOptions.map(opt => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+          
+          {/* 구분선 */}
+          <div className="h-px bg-border my-1" />
+          
+          {/* 지표 옵션 */}
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            지표
+          </div>
           {indicators.map(ind => (
             <SelectItem key={ind.id} value={ind.id}>
               {ind.id} ({ind.type})
             </SelectItem>
           ))}
+          
+          {/* 구분선 */}
+          <div className="h-px bg-border my-1" />
+          
+          {/* 숫자 입력 */}
+          <SelectItem value="__number__">숫자 입력</SelectItem>
         </SelectContent>
       </Select>
       
@@ -1034,9 +1106,9 @@ export interface EntryJSON {
 }
 
 export interface ConditionJSON {
-  left: { ref: string } | { value: number };
+  left: { ref: string } | { price: string } | { value: number };
   op: string;
-  right: { ref: string } | { value: number };
+  right: { ref: string } | { price: string } | { value: number };
 }
 
 export type StopLossJSON =
@@ -1094,14 +1166,23 @@ function convertIndicator(indicator: any): IndicatorJSON {
  */
 function convertCondition(condition: ConditionDraft): ConditionJSON {
   return {
-    left: condition.left.type === 'indicator' 
-      ? { ref: condition.left.value as string }
-      : { value: condition.left.value as number },
+    left: convertValue(condition.left),
     op: condition.operator,
-    right: condition.right.type === 'indicator'
-      ? { ref: condition.right.value as string }
-      : { value: condition.right.value as number }
+    right: convertValue(condition.right)
   };
+}
+
+/**
+ * 값 변환 (indicator, price, number)
+ */
+function convertValue(value: { type: string; value: string | number }) {
+  if (value.type === 'indicator') {
+    return { ref: value.value as string };
+  } else if (value.type === 'price') {
+    return { price: value.value as string };
+  } else {
+    return { value: value.value as number };
+  }
 }
 
 /**

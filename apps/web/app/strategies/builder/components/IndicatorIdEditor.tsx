@@ -63,6 +63,15 @@ export function IndicatorIdEditor({
       return 'ID는 숫자로 시작할 수 없습니다';
     }
     
+    // 언더스코어가 처음이나 마지막 문자, 또는 연속으로 사용되는 경우 금지
+    if (id.startsWith('_') || id.endsWith('_')) {
+      return 'ID는 언더스코어(_)로 시작하거나 끝날 수 없습니다';
+    }
+    
+    if (id.includes('__')) {
+      return '언더스코어(_)를 연속으로 사용할 수 없습니다';
+    }
+    
     // 중복 체크 (현재 ID는 제외)
     if (id !== currentId && existingIds.includes(id)) {
       return `ID "${id}"는 이미 사용 중입니다`;
@@ -154,9 +163,14 @@ export function IndicatorIdEditor({
         </Alert>
       )}
       
-      <p className="text-xs text-muted-foreground">
-        Enter: 저장 | Esc: 취소
-      </p>
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">
+          Enter: 저장 | Esc: 취소
+        </p>
+        <p className="text-xs text-blue-600 dark:text-blue-400">
+          💡 형식: 영문, 숫자, 언더스코어(_) 사용 가능 (예: my_ema_1, custom_vol, rsi_14)
+        </p>
+      </div>
     </div>
   );
 }

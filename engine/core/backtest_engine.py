@@ -29,7 +29,8 @@ class BacktestEngine:
     def __init__(
         self, 
         initial_balance: float,
-        strategy_func: Callable[[Bar], Optional[Dict[str, Any]]]
+        strategy_func: Callable[[Bar], Optional[Dict[str, Any]]],
+        progress_callback: Optional[Callable[[int, int], None]] = None
     ):
         """
         Args:
@@ -37,6 +38,9 @@ class BacktestEngine:
             strategy_func: 전략 함수
                 입력: Bar
                 출력: None 또는 {'direction': 'LONG'|'SHORT', 'stop_loss': float}
+            progress_callback: 진행률 콜백 함수 (선택)
+                입력: (processed_bars: int, total_bars: int)
+                출력: None
         """
         if initial_balance <= 0:
             raise ValueError("초기 잔고는 0보다 커야 합니다")
@@ -44,11 +48,15 @@ class BacktestEngine:
         self.initial_balance = initial_balance
         self.strategy_func = strategy_func
         self.risk_manager = RiskManager(initial_balance)
+        self.progress_callback = progress_callback
         
         # 상태 관리
         self.current_position: Optional[Position] = None
         self.trades: List[Trade] = []
         self.trade_id_counter = 1
+        
+        # 거래 완료 카운터 (50거래마다 잔고 재평가용)
+        self.completed_trades_count = 0
         
         # 경고 메시지 저장 (run_artifacts에 기록될 내용)
         self.warnings: List[str] = []
@@ -79,9 +87,18 @@ class BacktestEngine:
                     f"index {i+1}: {bars[i+1].timestamp})"
                 )
         
+        total_bars = len(bars)
+        
         # 봉 단위 처리
-        for bar in bars:
+        for idx, bar in enumerate(bars):
             self._process_bar(bar)
+            
+            # 진행률 콜백 호출 (업데이트 빈도: 1% 단위 또는 최소 100개 봉마다)
+            if self.progress_callback:
+                update_interval = max(1, total_bars // 100)
+                # 마지막 봉이거나 업데이트 주기에 도달한 경우
+                if (idx + 1) % update_interval == 0 or (idx + 1) == total_bars:
+                    self.progress_callback(idx + 1, total_bars)
         
         return self.trades
     
@@ -339,6 +356,18 @@ class BacktestEngine:
         
         # 포지션 초기화
         self.current_position = None
+        
+        # 거래 완료 카운터 증가
+        self.completed_trades_count += 1
+        
+        # 50거래마다 잔고 재평가
+        if self.completed_trades_count % 50 == 0:
+            # 현재 잔고 = 초기 자산 + 모든 완료된 거래의 누적 PnL
+            total_pnl = sum(t.calculate_total_pnl() for t in self.trades)
+            current_balance = self.initial_balance + total_pnl
+            
+            # RiskManager의 잔고 업데이트
+            self.risk_manager.update_balance(current_balance)
     
     def _check_entry_signal(self, bar: Bar) -> None:
         """
@@ -460,7 +489,8 @@ class BacktestEngine:
             position_size=position_size,
             initial_risk=risk,
             stop_loss=stop_loss,
-            take_profit_1=tp1_price
+            take_profit_1=tp1_price,
+            balance_at_entry=self.risk_manager.current_balance  # 진입 시점의 잔고 저장
         )
         self.trades.append(trade)
         

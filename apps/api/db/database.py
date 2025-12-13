@@ -117,6 +117,10 @@ class Database:
         # WAL 모드 활성화 (성능 향상 및 동시 접근 지원)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
+        # 동기화 모드를 NORMAL로 설정 (WAL 모드에서 안전하면서도 빠름)
+        # FULL: 모든 커밋마다 fsync() → 안전하지만 매우 느림
+        # NORMAL: 중요한 순간에만 fsync() → WAL 모드에서 충분히 안전하고 빠름
+        conn.execute("PRAGMA synchronous=NORMAL")
         
         try:
             yield conn

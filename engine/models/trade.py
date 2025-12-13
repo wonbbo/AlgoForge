@@ -35,6 +35,7 @@ class Trade:
     initial_risk: float
     stop_loss: float
     take_profit_1: float
+    balance_at_entry: float = 0.0  # 진입 시점의 잔고 (리스크 제한 계산용)
     
     # 거래 종료 정보
     legs: List[TradeLeg] = field(default_factory=list)

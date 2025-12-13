@@ -21,6 +21,9 @@ class MetricsResponse(BaseModel):
     average_pnl: float
     profit_factor: float
     max_drawdown: float
+    max_consecutive_wins: int
+    max_consecutive_losses: int
+    expectancy: float
     score: float
     grade: str
 

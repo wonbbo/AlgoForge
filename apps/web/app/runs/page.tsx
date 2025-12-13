@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Plus, PlayCircle, Eye, RefreshCw, Trash2 } from "lucide-react"
+import { Plus, PlayCircle, Eye, RefreshCw, Trash2, XCircle } from "lucide-react"
 import { runApi, datasetApi, strategyApi } from "@/lib/api-client"
 import type { Run, Dataset, Strategy } from "@/lib/types"
 import { formatTimestamp, getStatusColor } from "@/lib/utils"
@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { RunProgressMonitor } from "./components/RunProgressMonitor"
 
 /**
  * Run 목록 페이지
@@ -94,24 +95,44 @@ export default function RunsPage() {
     const datasetName = getDatasetName(run.dataset_id)
     const strategyName = getStrategyName(run.strategy_id)
     
-    if (!confirm(`동일한 설정으로 새 Run을 생성하시겠습니까?\n\n데이터셋: ${datasetName}\n전략: ${strategyName}`)) {
+    if (!confirm(`이 Run을 다시 실행하시겠습니까?\n\nRun ID: #${run.run_id}\n데이터셋: ${datasetName}\n전략: ${strategyName}\n\n기존 결과는 삭제됩니다.`)) {
       return
     }
 
     try {
-      const createdRun = await runApi.create({
-        dataset_id: run.dataset_id,
-        strategy_id: run.strategy_id,
-      })
+      const rerunRun = await runApi.rerun(run.run_id)
       
-      toast.success('Run이 재생성되었습니다!', {
-        description: `Run ID: ${createdRun.run_id} - 백테스트가 시작되었습니다.`
+      toast.success('Run이 재실행되었습니다!', {
+        description: `Run ID: ${rerunRun.run_id} - 백테스트가 시작되었습니다.`
       })
       
       await loadData()
     } catch (error: any) {
       console.error('Failed to rerun:', error)
       toast.error('Run 재수행에 실패했습니다', {
+        description: error.message
+      })
+    }
+  }
+
+  // 중지 함수
+  async function handleCancel(run: Run) {
+    const datasetName = getDatasetName(run.dataset_id)
+    const strategyName = getStrategyName(run.strategy_id)
+    
+    if (!confirm(`실행 중인 Run을 중지하시겠습니까?\n\nRun ID: #${run.run_id}\n데이터셋: ${datasetName}\n전략: ${strategyName}\n\n중지된 Run은 결과가 저장되지 않습니다.`)) {
+      return
+    }
+
+    try {
+      await runApi.cancel(run.run_id)
+      toast.success('Run이 중지되었습니다', {
+        description: `Run ID: #${run.run_id}`
+      })
+      await loadData()
+    } catch (error: any) {
+      console.error('Failed to cancel run:', error)
+      toast.error('Run 중지에 실패했습니다', {
         description: error.message
       })
     }
@@ -307,9 +328,16 @@ export default function RunsPage() {
                       {getStrategyName(run.strategy_id)}
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(run.status)}>
-                        {run.status}
-                      </Badge>
+                      {run.status === "RUNNING" ? (
+                        <RunProgressMonitor 
+                          runId={run.run_id}
+                          onComplete={() => loadData()}
+                        />
+                      ) : (
+                        <Badge className={getStatusColor(run.status)}>
+                          {run.status}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm">
                       {run.started_at ? formatTimestamp(run.started_at) : '-'}
@@ -321,19 +349,37 @@ export default function RunsPage() {
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => handleRerun(run)}
-                          title="재수행"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
+                        
+                        {/* RUNNING 상태일 때만 중지 버튼 표시 */}
+                        {run.status === "RUNNING" && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleCancel(run)}
+                            title="중지"
+                          >
+                            <XCircle className="h-4 w-4 text-orange-600" />
+                          </Button>
+                        )}
+                        
+                        {/* RUNNING이 아닐 때만 재수행 버튼 표시 */}
+                        {run.status !== "RUNNING" && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleRerun(run)}
+                            title="재수행"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
                         <Button 
                           variant="ghost" 
                           size="icon"
                           onClick={() => handleDelete(run)}
                           title="삭제"
+                          disabled={run.status === "RUNNING"}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>

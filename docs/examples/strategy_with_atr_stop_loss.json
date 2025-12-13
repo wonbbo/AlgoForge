@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "meta": {
+    "name": "ATR 기반 손절 EMA 크로스 전략",
+    "description": "EMA 크로스 진입 + ATR 기반 동적 손절"
+  },
+  "indicators": [
+    {
+      "id": "ema_fast",
+      "type": "ema",
+      "params": {
+        "source": "close",
+        "period": 12
+      }
+    },
+    {
+      "id": "ema_slow",
+      "type": "ema",
+      "params": {
+        "source": "close",
+        "period": 26
+      }
+    },
+    {
+      "id": "atr_14",
+      "type": "atr",
+      "params": {
+        "period": 14
+      }
+    }
+  ],
+  "entry": {
+    "long": {
+      "and": [
+        {
+          "left": { "ref": "ema_fast" },
+          "op": "cross_above",
+          "right": { "ref": "ema_slow" }
+        }
+      ]
+    },
+    "short": {
+      "and": [
+        {
+          "left": { "ref": "ema_fast" },
+          "op": "cross_below",
+          "right": { "ref": "ema_slow" }
+        }
+      ]
+    }
+  },
+  "stop_loss": {
+    "type": "atr_based",
+    "atr_indicator_id": "atr_14",
+    "multiplier": 2.0
+  },
+  "reverse": {
+    "enabled": true,
+    "mode": "use_entry_opposite"
+  },
+  "hook": {
+    "enabled": false
+  }
+}
+

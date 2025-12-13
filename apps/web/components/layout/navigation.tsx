@@ -7,7 +7,8 @@ import {
   LayoutDashboard, 
   Database, 
   GitBranch, 
-  PlayCircle 
+  PlayCircle,
+  Gauge
 } from "lucide-react"
 
 /**
@@ -31,6 +32,11 @@ export function Navigation() {
       href: "/strategies",
       label: "전략",
       icon: GitBranch,
+    },
+    {
+      href: "/indicators",
+      label: "지표",
+      icon: Gauge,
     },
     {
       href: "/runs",

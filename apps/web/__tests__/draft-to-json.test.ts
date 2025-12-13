@@ -521,5 +521,123 @@ describe('Draft to JSON Conversion', () => {
       expect(hash1.length).toBe(64); // SHA-256 hex string
     });
   });
+  
+  describe('OHLCV 조건 변환 테스트', () => {
+    test('OHLCV (price) 조건이 올바르게 변환됨', () => {
+      const draft: StrategyDraft = {
+        name: 'OHLCV Strategy',
+        description: 'Close > EMA 조건 테스트',
+        indicators: [
+          { id: 'ema_20', type: 'ema', params: { source: 'close', period: 20 } }
+        ],
+        entry: {
+          long: {
+            conditions: [
+              {
+                tempId: '1',
+                left: { type: 'price', value: 'close' },
+                operator: '>',
+                right: { type: 'indicator', value: 'ema_20' }
+              }
+            ]
+          },
+          short: { conditions: [] }
+        },
+        stopLoss: { type: 'fixed_percent', percent: 2 },
+        reverse: { enabled: false },
+        hook: { enabled: false }
+      };
+      
+      const json = draftToStrategyJSON(draft);
+      
+      // OHLCV 조건이 올바르게 변환되었는지 확인
+      expect(json.entry.long.and.length).toBe(1);
+      const condition = json.entry.long.and[0];
+      
+      // left가 price 타입으로 변환되었는지 확인
+      expect('price' in condition.left).toBe(true);
+      if ('price' in condition.left) {
+        expect(condition.left.price).toBe('close');
+      }
+      
+      // right가 ref 타입으로 변환되었는지 확인
+      expect('ref' in condition.right).toBe(true);
+      if ('ref' in condition.right) {
+        expect(condition.right.ref).toBe('ema_20');
+      }
+      
+      expect(condition.op).toBe('>');
+    });
+    
+    test('모든 OHLCV 필드가 올바르게 변환됨', () => {
+      const ohlcvFields = ['open', 'high', 'low', 'close', 'volume'];
+      
+      for (const field of ohlcvFields) {
+        const draft: StrategyDraft = {
+          name: `${field.toUpperCase()} Strategy`,
+          description: `${field} 조건 테스트`,
+          indicators: [],
+          entry: {
+            long: {
+              conditions: [
+                {
+                  tempId: '1',
+                  left: { type: 'price', value: field },
+                  operator: '>',
+                  right: { type: 'number', value: 1000 }
+                }
+              ]
+            },
+            short: { conditions: [] }
+          },
+          stopLoss: { type: 'fixed_percent', percent: 2 },
+          reverse: { enabled: false },
+          hook: { enabled: false }
+        };
+        
+        const json = draftToStrategyJSON(draft);
+        const condition = json.entry.long.and[0];
+        
+        expect('price' in condition.left).toBe(true);
+        if ('price' in condition.left) {
+          expect(condition.left.price).toBe(field);
+        }
+      }
+    });
+    
+    test('OHLCV 조건이 포함된 전략의 hash가 일관되게 생성됨', async () => {
+      const draft: StrategyDraft = {
+        name: 'Volume Filter Strategy',
+        description: 'Volume > 평균 조건',
+        indicators: [
+          { id: 'sma_volume', type: 'sma', params: { source: 'volume', period: 20 } }
+        ],
+        entry: {
+          long: {
+            conditions: [
+              {
+                tempId: '1',
+                left: { type: 'price', value: 'volume' },
+                operator: '>',
+                right: { type: 'indicator', value: 'sma_volume' }
+              }
+            ]
+          },
+          short: { conditions: [] }
+        },
+        stopLoss: { type: 'fixed_percent', percent: 2 },
+        reverse: { enabled: false },
+        hook: { enabled: false }
+      };
+      
+      const json1 = draftToStrategyJSON(draft);
+      const json2 = draftToStrategyJSON(JSON.parse(JSON.stringify(draft)));
+      
+      const hash1 = await calculateStrategyHash(json1);
+      const hash2 = await calculateStrategyHash(json2);
+      
+      expect(hash1).toBe(hash2);
+    });
+  });
 });
 

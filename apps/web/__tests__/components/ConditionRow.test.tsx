@@ -87,5 +87,49 @@ describe('ConditionRow Component', () => {
     const comboboxes = screen.getAllByRole('combobox');
     expect(comboboxes).toHaveLength(3);
   });
+  
+  test('OHLCV 옵션이 표시됨', () => {
+    const { container } = render(
+      <ConditionRow
+        condition={mockCondition}
+        indicators={mockIndicators}
+        onChange={mockOnChange}
+        onRemove={mockOnRemove}
+      />
+    );
+    
+    // OHLCV 옵션이 렌더링되는지 확인
+    const options = container.querySelectorAll('option');
+    const optionTexts = Array.from(options).map(opt => opt.textContent);
+    
+    // OHLCV 옵션들이 포함되어 있는지 확인
+    expect(optionTexts.some(text => text?.includes('Open'))).toBe(true);
+    expect(optionTexts.some(text => text?.includes('High'))).toBe(true);
+    expect(optionTexts.some(text => text?.includes('Low'))).toBe(true);
+    expect(optionTexts.some(text => text?.includes('Close'))).toBe(true);
+    expect(optionTexts.some(text => text?.includes('Volume'))).toBe(true);
+  });
+  
+  test('OHLCV 값을 선택한 조건이 올바르게 렌더링됨', () => {
+    const priceCondition: ConditionDraft = {
+      tempId: '1',
+      left: { type: 'price', value: 'close' },
+      operator: '>',
+      right: { type: 'indicator', value: 'ema_1' }
+    };
+    
+    render(
+      <ConditionRow
+        condition={priceCondition}
+        indicators={mockIndicators}
+        onChange={mockOnChange}
+        onRemove={mockOnRemove}
+      />
+    );
+    
+    // 좌변 select에 'close' 값이 선택되어 있는지 확인
+    const comboboxes = screen.getAllByRole('combobox');
+    expect(comboboxes[0]).toHaveValue('close');
+  });
 });
 

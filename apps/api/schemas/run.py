@@ -13,6 +13,7 @@ class RunStatus(str, Enum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 class RunCreate(BaseModel):
@@ -45,6 +46,11 @@ class RunResponse(BaseModel):
     started_at: Optional[int]
     completed_at: Optional[int]
     run_artifacts: Optional[Dict[str, Any]]
+    
+    # 진행률 추적 필드
+    progress_percent: Optional[float] = Field(default=None, description="진행률 (0~100)")
+    processed_bars: Optional[int] = Field(default=None, description="처리된 봉 개수")
+    total_bars: Optional[int] = Field(default=None, description="전체 봉 개수")
 
 
 class RunList(BaseModel):

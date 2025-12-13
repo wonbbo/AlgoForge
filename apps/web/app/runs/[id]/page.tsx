@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react"
+import { ArrowLeft, TrendingUp, TrendingDown, XCircle } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { EquityCurveChart } from "./components/EquityCurveChart"
@@ -36,6 +36,10 @@ export default function RunDetailPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1)
+  const tradesPerPage = 20
 
   useEffect(() => {
     // Run 상세 정보를 로드하는 함수
@@ -78,6 +82,24 @@ export default function RunDetailPage() {
     }
   }, [runId])
 
+  // 중지 함수
+  async function handleCancel() {
+    if (!confirm('실행 중인 Run을 중지하시겠습니까?\n\n중지된 Run은 결과가 저장되지 않습니다.')) {
+      return
+    }
+
+    try {
+      await runApi.cancel(runId)
+      toast.success('Run이 중지되었습니다')
+      router.push('/runs')
+    } catch (error: any) {
+      console.error('Failed to cancel run:', error)
+      toast.error('Run 중지에 실패했습니다', {
+        description: error.message
+      })
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -116,6 +138,17 @@ export default function RunDetailPage() {
             </div>
           </div>
         </div>
+        
+        {/* RUNNING 상태일 때 중지 버튼 표시 */}
+        {run.status === 'RUNNING' && (
+          <Button 
+            variant="destructive" 
+            onClick={handleCancel}
+          >
+            <XCircle className="mr-2 h-4 w-4" />
+            중지
+          </Button>
+        )}
       </div>
 
       {/* Run 정보 */}
@@ -238,6 +271,24 @@ export default function RunDetailPage() {
                     {formatPercent(metrics.be_exit_rate * 100, 1)}
                   </p>
                 </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">최대 연속 수익</p>
+                  <p className="text-lg font-medium text-profit">
+                    {metrics.max_consecutive_wins}연승
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">최대 연속 손실</p>
+                  <p className="text-lg font-medium text-destructive">
+                    {metrics.max_consecutive_losses}연패
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Trading Edge</p>
+                  <p className={`text-lg font-medium ${metrics.expectancy >= 0 ? 'text-profit' : 'text-loss'}`}>
+                    {formatCurrency(metrics.expectancy)}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -271,64 +322,158 @@ export default function RunDetailPage() {
           {/* 거래 내역 */}
           <Card>
             <CardHeader>
-              <CardTitle>거래 내역</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>거래 내역</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  완료된 거래: {trades.filter(t => t.legs && t.legs.length > 0).length}개
+                </p>
+              </div>
             </CardHeader>
             <CardContent>
-              {trades.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  거래 내역이 없습니다
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>방향</TableHead>
-                      <TableHead>진입가</TableHead>
-                      <TableHead>진입 시각</TableHead>
-                      <TableHead>Legs</TableHead>
-                      <TableHead className="text-right">손익</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {trades.map((trade) => (
-                      <TableRow 
-                        key={trade.trade_id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => router.push(`/runs/${runId}/trades/${trade.trade_id}`)}
-                      >
-                        <TableCell className="font-medium">
-                          #{trade.trade_id}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={trade.direction === 'LONG' ? 'default' : 'secondary'}>
-                            {trade.direction === 'LONG' ? (
-                              <TrendingUp className="h-3 w-3 mr-1" />
-                            ) : (
-                              <TrendingDown className="h-3 w-3 mr-1" />
-                            )}
-                            {trade.direction}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {formatCurrency(trade.entry_price)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatTimestamp(trade.entry_timestamp)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {trade.legs.map(leg => leg.exit_type).join(', ')}
-                        </TableCell>
-                        <TableCell className={`text-right font-medium ${
-                          (trade.total_pnl || 0) >= 0 ? 'text-profit' : 'text-loss'
-                        }`}>
-                          {formatCurrency(trade.total_pnl || 0)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              {(() => {
+                // 완료된 거래만 필터링 (legs가 있는 거래)
+                const completedTrades = trades.filter(t => t.legs && t.legs.length > 0)
+                
+                if (completedTrades.length === 0) {
+                  return (
+                    <p className="text-center text-muted-foreground py-8">
+                      완료된 거래가 없습니다
+                    </p>
+                  )
+                }
+                
+                // 페이지네이션 계산
+                const totalPages = Math.ceil(completedTrades.length / tradesPerPage)
+                const startIndex = (currentPage - 1) * tradesPerPage
+                const endIndex = startIndex + tradesPerPage
+                const paginatedTrades = [...completedTrades].reverse().slice(startIndex, endIndex)
+                
+                return (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>방향</TableHead>
+                          <TableHead>진입가</TableHead>
+                          <TableHead>진입 시각</TableHead>
+                          <TableHead>Legs</TableHead>
+                          <TableHead className="text-right">손익</TableHead>
+                          <TableHead className="text-right">Trading Edge</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedTrades.map((trade, paginatedIndex) => {
+                          // 전체 배열에서의 역순 인덱스 계산
+                          const reversedIndex = startIndex + paginatedIndex
+                          // 역순이므로 원본 인덱스 계산 (Trading Edge 계산용)
+                          const originalIndex = completedTrades.length - 1 - reversedIndex
+                          const tradesUpToThis = completedTrades.slice(0, originalIndex + 1)
+                          // 누적 Trading Edge 계산: 해당 거래까지의 평균 PnL
+                          const cumulativeTotalPnl = tradesUpToThis.reduce((sum, t) => sum + (t.total_pnl || 0), 0)
+                          const cumulativeEdge = cumulativeTotalPnl / tradesUpToThis.length
+                          
+                          return (
+                            <TableRow 
+                              key={trade.trade_id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => router.push(`/runs/${runId}/trades/${trade.trade_id}`)}
+                            >
+                              <TableCell className="font-medium">
+                                #{trade.trade_id}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={trade.direction === 'LONG' ? 'default' : 'destructive'}>
+                                  {trade.direction === 'LONG' ? (
+                                    <TrendingUp className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <TrendingDown className="h-3 w-3 mr-1" />
+                                  )}
+                                  {trade.direction}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">
+                                {formatCurrency(trade.entry_price, 4)}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {formatTimestamp(trade.entry_timestamp)}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {trade.legs.map(leg => leg.exit_type).join(', ')}
+                              </TableCell>
+                              <TableCell className={`text-right font-medium ${
+                                (trade.total_pnl || 0) >= 0 ? 'text-profit' : 'text-loss'
+                              }`}>
+                                {formatCurrency(trade.total_pnl || 0)}
+                              </TableCell>
+                              <TableCell className={`text-right font-medium ${
+                                cumulativeEdge >= 0 ? 'text-profit' : 'text-loss'
+                              }`}>
+                                {formatCurrency(cumulativeEdge)}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                    
+                    {/* 페이지네이션 */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                        <p className="text-sm text-muted-foreground">
+                          페이지 {currentPage} / {totalPages} (총 {completedTrades.length}개)
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            이전
+                          </Button>
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              // 현재 페이지 근처만 표시 (최대 5개)
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              )
+                            })
+                            .map((page, index, arr) => {
+                              // 페이지 번호 사이에 간격이 있으면 ... 표시
+                              const showEllipsis = index > 0 && page - arr[index - 1] > 1
+                              
+                              return (
+                                <div key={page} className="flex items-center">
+                                  {showEllipsis && (
+                                    <span className="px-2 text-muted-foreground">...</span>
+                                  )}
+                                  <Button
+                                    variant={currentPage === page ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setCurrentPage(page)}
+                                  >
+                                    {page}
+                                  </Button>
+                                </div>
+                              )
+                            })}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
+                          >
+                            다음
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </CardContent>
           </Card>
         </>
@@ -363,6 +508,21 @@ export default function RunDetailPage() {
               {run.run_artifacts?.error && (
                 <span className="block mt-1 font-mono text-xs">
                   오류: {run.run_artifacts.error}
+                </span>
+              )}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {run.status === 'CANCELLED' && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="pt-6">
+            <p className="text-sm text-orange-800">
+              백테스트가 사용자에 의해 중지되었습니다.
+              {run.run_artifacts?.message && (
+                <span className="block mt-1">
+                  {run.run_artifacts.message}
                 </span>
               )}
             </p>

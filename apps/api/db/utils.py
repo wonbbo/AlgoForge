@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 import json
 from datetime import datetime
+import pandas as pd
 
 from engine.models.bar import Bar
 
@@ -67,7 +68,7 @@ def calculate_strategy_hash(definition: Dict[str, Any]) -> str:
     return hash_obj.hexdigest()
 
 
-def load_bars_from_csv(file_path: str) -> Tuple[List[Bar], Dict[str, Any]]:
+def load_bars_from_csv(file_path: str) -> Tuple[List[Bar], pd.DataFrame, Dict[str, Any]]:
     """
     CSV 파일에서 봉 데이터 로드
     
@@ -85,7 +86,8 @@ def load_bars_from_csv(file_path: str) -> Tuple[List[Bar], Dict[str, Any]]:
         file_path: CSV 파일 경로
         
     Returns:
-        Tuple[List[Bar], Dict[str, Any]]: (봉 데이터 리스트, 메타데이터)
+        Tuple[List[Bar], pd.DataFrame, Dict[str, Any]]: 
+            (봉 데이터 리스트, OHLCV DataFrame, 메타데이터)
         
     Raises:
         FileNotFoundError: 파일이 존재하지 않는 경우
@@ -136,6 +138,17 @@ def load_bars_from_csv(file_path: str) -> Tuple[List[Bar], Dict[str, Any]]:
     # timestamp 오름차순 정렬
     bars.sort(key=lambda b: b.timestamp)
     
+    # DataFrame 생성 (지표 계산을 위해)
+    df = pd.DataFrame({
+        'timestamp': [b.timestamp for b in bars],
+        'open': [b.open for b in bars],
+        'high': [b.high for b in bars],
+        'low': [b.low for b in bars],
+        'close': [b.close for b in bars],
+        'volume': [b.volume for b in bars],
+        'direction': [b.direction for b in bars]
+    })
+    
     # 메타데이터 계산
     metadata = {
         'bars_count': len(bars),
@@ -143,7 +156,7 @@ def load_bars_from_csv(file_path: str) -> Tuple[List[Bar], Dict[str, Any]]:
         'end_timestamp': bars[-1].timestamp,
     }
     
-    return bars, metadata
+    return bars, df, metadata
 
 
 def validate_bars(bars: List[Bar]) -> Tuple[bool, List[str]]:

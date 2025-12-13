@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
-from apps.api.routers import datasets, strategies, runs
+from apps.api.routers import datasets, strategies, runs, indicators
 from apps.api.utils.exceptions import AlgoForgeException
 from apps.api.utils.responses import error_response
 from apps.api.db.database import get_database
@@ -119,6 +119,12 @@ app.include_router(
     runs.router,
     prefix="/api/runs",
     tags=["runs"]
+)
+
+app.include_router(
+    indicators.router,
+    prefix="/api/indicators",
+    tags=["indicators"]
 )
 
 

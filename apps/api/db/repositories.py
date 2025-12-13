@@ -420,6 +420,89 @@ class RunRepository:
         query = f"UPDATE runs SET {', '.join(fields)} WHERE run_id = ?"
         return self.db.execute_update(query, tuple(params))
     
+    def update_progress(
+        self,
+        run_id: int,
+        processed_bars: int,
+        total_bars: int
+    ) -> int:
+        """
+        Run 진행률 업데이트
+        
+        Args:
+            run_id: Run ID
+            processed_bars: 처리된 봉 개수
+            total_bars: 전체 봉 개수
+            
+        Returns:
+            int: 영향받은 행 수
+        """
+        # 진행률 계산 (0~100)
+        progress_percent = (processed_bars / total_bars * 100) if total_bars > 0 else 0
+        
+        query = """
+        UPDATE runs 
+        SET progress_percent = ?,
+            processed_bars = ?,
+            total_bars = ?
+        WHERE run_id = ?
+        """
+        
+        return self.db.execute_update(
+            query,
+            (progress_percent, processed_bars, total_bars, run_id)
+        )
+    
+    def reset_for_rerun(self, run_id: int) -> int:
+        """
+        Run을 재실행하기 위해 결과 데이터를 삭제하고 상태를 초기화
+        
+        Args:
+            run_id: Run ID
+            
+        Returns:
+            int: 업데이트된 행 수
+            
+        Note:
+            다음 작업을 수행합니다:
+            1. trade_legs 삭제
+            2. trades 삭제
+            3. metrics 삭제
+            4. Run 상태를 PENDING으로 재설정
+            5. 타임스탬프 및 진행률 초기화
+        """
+        # 1. 이 Run의 모든 trade_id 조회
+        trades_query = "SELECT trade_id FROM trades WHERE run_id = ?"
+        trades = self.db.execute_query(trades_query, (run_id,))
+        
+        # 2. 각 trade의 trade_legs 삭제
+        for trade in trades:
+            trade_id = trade["trade_id"]
+            legs_query = "DELETE FROM trade_legs WHERE trade_id = ?"
+            self.db.execute_delete(legs_query, (trade_id,))
+        
+        # 3. trades 삭제
+        trades_delete_query = "DELETE FROM trades WHERE run_id = ?"
+        self.db.execute_delete(trades_delete_query, (run_id,))
+        
+        # 4. metrics 삭제
+        metrics_query = "DELETE FROM metrics WHERE run_id = ?"
+        self.db.execute_delete(metrics_query, (run_id,))
+        
+        # 5. Run 상태 초기화
+        reset_query = """
+        UPDATE runs 
+        SET status = 'PENDING',
+            started_at = NULL,
+            completed_at = NULL,
+            progress_percent = 0,
+            processed_bars = 0,
+            total_bars = 0,
+            run_artifacts = NULL
+        WHERE run_id = ?
+        """
+        return self.db.execute_update(reset_query, (run_id,))
+    
     def delete(self, run_id: int) -> int:
         """
         Run 삭제 (관련된 모든 데이터를 함께 삭제)
@@ -487,8 +570,8 @@ class TradeRepository:
         INSERT INTO trades (
             run_id, direction, entry_timestamp, entry_price,
             position_size, initial_risk, stop_loss, take_profit_1,
-            is_closed, total_pnl
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            is_closed, total_pnl, balance_at_entry
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         return self.db.execute_insert(
@@ -503,7 +586,8 @@ class TradeRepository:
                 trade.stop_loss,
                 trade.take_profit_1,
                 1 if trade.is_closed else 0,
-                trade.calculate_total_pnl()
+                trade.calculate_total_pnl(),
+                trade.balance_at_entry
             )
         )
     
@@ -623,8 +707,9 @@ class MetricsRepository:
         INSERT INTO metrics (
             run_id, trades_count, winning_trades, losing_trades,
             win_rate, tp1_hit_rate, be_exit_rate, total_pnl,
-            average_pnl, profit_factor, max_drawdown, score, grade
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            average_pnl, profit_factor, max_drawdown, max_consecutive_wins,
+            max_consecutive_losses, expectancy, score, grade
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         return self.db.execute_insert(
@@ -641,6 +726,9 @@ class MetricsRepository:
                 metrics.average_pnl,
                 metrics.profit_factor,
                 metrics.max_drawdown,
+                metrics.max_consecutive_wins,
+                metrics.max_consecutive_losses,
+                metrics.expectancy,
                 metrics.score,
                 metrics.grade
             )

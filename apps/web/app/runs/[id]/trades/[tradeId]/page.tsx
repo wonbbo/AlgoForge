@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { runApi } from "@/lib/api-client"
-import type { Trade } from "@/lib/types"
-import { formatTimestamp, formatCurrency, formatPercent } from "@/lib/utils"
+import type { Trade, ChartDataResponse, Run } from "@/lib/types"
+import { formatTimestamp, formatCurrency, formatPercent, formatPrice } from "@/lib/utils"
 import {
   Table,
   TableBody,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table"
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react"
 import Link from "next/link"
+import { TradeChart } from "./components/TradeChart"
 
 /**
  * Trade 상세 페이지
@@ -31,13 +32,22 @@ export default function TradeDetailPage() {
   const tradeId = Number(params.tradeId)
 
   const [trade, setTrade] = useState<Trade | null>(null)
+  const [run, setRun] = useState<Run | null>(null)
+  const [chartData, setChartData] = useState<ChartDataResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [chartLoading, setChartLoading] = useState(true)
 
   useEffect(() => {
     async function loadTradeDetail() {
       try {
-        // 모든 Trade를 가져와서 해당 Trade를 찾음
-        const tradesResponse = await runApi.getTrades(runId)
+        // Run 정보와 Trade 정보를 함께 로드
+        const [runData, tradesResponse] = await Promise.all([
+          runApi.get(runId),
+          runApi.getTrades(runId)
+        ])
+        
+        setRun(runData)
+        
         const foundTrade = tradesResponse.find(t => t.trade_id === tradeId)
         
         if (!foundTrade) {
@@ -53,8 +63,20 @@ export default function TradeDetailPage() {
       }
     }
 
+    async function loadChartData() {
+      try {
+        const data = await runApi.getTradeChartData(runId, tradeId)
+        setChartData(data)
+      } catch (error) {
+        console.error('Failed to load chart data:', error)
+      } finally {
+        setChartLoading(false)
+      }
+    }
+
     if (runId && tradeId) {
       loadTradeDetail()
+      loadChartData()
     }
   }, [runId, tradeId])
 
@@ -126,22 +148,55 @@ export default function TradeDetailPage() {
           <CardTitle>진입 정보</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">진입 시각</p>
-              <p className="font-medium">{formatTimestamp(trade.entry_timestamp)}</p>
+          <div className="space-y-4">
+            {/* 첫 번째 줄 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">진입 시각</p>
+                <p className="font-medium">{formatTimestamp(trade.entry_timestamp)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">진입가</p>
+                <p className="font-medium font-mono">{formatPrice(trade.entry_price)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">포지션 크기</p>
+                <p className="font-medium">{Math.round(trade.position_size)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">진입가</p>
-              <p className="font-medium font-mono">{formatCurrency(trade.entry_price)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">포지션 크기</p>
-              <p className="font-medium">{trade.position_size.toFixed(4)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">초기 리스크</p>
-              <p className="font-medium text-destructive">{formatCurrency(trade.initial_risk)}</p>
+            
+            {/* 두 번째 줄 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t">
+              <div>
+                <p className="text-sm text-muted-foreground">매수 규모</p>
+                <p className="text-xl font-bold font-mono text-primary">
+                  {formatCurrency(trade.entry_price * trade.position_size)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  진입가 × 포지션 크기
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">리스크 제한</p>
+                <p className="text-xl font-bold text-orange-600 dark:text-orange-500">
+                  {trade.balance_at_entry 
+                    ? formatCurrency(trade.balance_at_entry * 0.02)
+                    : (run ? formatCurrency(run.initial_balance * 0.02) : '-')
+                  }
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  진입 시점 자산의 2%
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">초기 리스크</p>
+                <p className="text-xl font-bold text-destructive font-mono">
+                  ${trade.initial_risk.toFixed(4)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  실제 리스크 금액
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -157,7 +212,7 @@ export default function TradeDetailPage() {
             <div>
               <p className="text-sm text-muted-foreground">손절가 (SL)</p>
               <p className="font-medium font-mono text-destructive">
-                {formatCurrency(trade.stop_loss)}
+                {formatPrice(trade.stop_loss)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {trade.direction === 'LONG' 
@@ -169,7 +224,7 @@ export default function TradeDetailPage() {
             <div>
               <p className="text-sm text-muted-foreground">1차 익절가 (TP1)</p>
               <p className="font-medium font-mono text-profit">
-                {formatCurrency(trade.take_profit_1)}
+                {formatPrice(trade.take_profit_1)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {trade.direction === 'LONG' 
@@ -198,10 +253,14 @@ export default function TradeDetailPage() {
             <div>
               <p className="text-sm text-muted-foreground">손익률</p>
               <p className={`text-2xl font-bold ${pnlColor}`}>
-                {trade.initial_risk > 0 
-                  ? formatPercent(((trade.total_pnl || 0) / trade.initial_risk) * 100, 2)
-                  : '0.00%'
-                }
+                {(() => {
+                  // 진입 금액 = 진입가 × 포지션 크기
+                  const entryValue = trade.entry_price * trade.position_size
+                  if (entryValue > 0) {
+                    return formatPercent(((trade.total_pnl || 0) / entryValue) * 100, 2)
+                  }
+                  return '0.00%'
+                })()}
               </p>
             </div>
             <div>
@@ -215,6 +274,26 @@ export default function TradeDetailPage() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* 차트 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>거래 차트</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {chartLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">차트 로딩 중...</p>
+            </div>
+          ) : chartData ? (
+            <TradeChart chartData={chartData} />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">차트 데이터를 불러올 수 없습니다</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -258,7 +337,7 @@ export default function TradeDetailPage() {
                     {formatTimestamp(leg.exit_timestamp)}
                   </TableCell>
                   <TableCell className="font-mono text-sm">
-                    {formatCurrency(leg.exit_price)}
+                    {formatPrice(leg.exit_price)}
                   </TableCell>
                   <TableCell>
                     {formatPercent(leg.qty_ratio * 100, 0)}

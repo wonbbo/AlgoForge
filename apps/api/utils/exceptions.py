@@ -69,3 +69,10 @@ class DuplicateDataError(AlgoForgeException):
             details=details
         )
 
+
+class CancellationRequested(Exception):
+    """Run 중지가 요청되었을 때 발생하는 예외"""
+    
+    def __init__(self, run_id: int):
+        self.run_id = run_id
+        super().__init__(f"Run {run_id} cancelled by user")

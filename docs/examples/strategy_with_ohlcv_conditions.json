@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "meta": {
+    "name": "OHLCV 조건 사용 예제",
+    "description": "Close가 EMA 위에 있고, Volume이 일정 수준 이상일 때 진입하는 전략"
+  },
+  "indicators": [
+    {
+      "id": "ema_20",
+      "type": "ema",
+      "params": {
+        "source": "close",
+        "period": 20
+      }
+    },
+    {
+      "id": "sma_volume",
+      "type": "sma",
+      "params": {
+        "source": "volume",
+        "period": 20
+      }
+    }
+  ],
+  "entry": {
+    "long": {
+      "and": [
+        {
+          "left": { "price": "close" },
+          "op": ">",
+          "right": { "ref": "ema_20" }
+        },
+        {
+          "left": { "price": "volume" },
+          "op": ">",
+          "right": { "ref": "sma_volume" }
+        }
+      ]
+    },
+    "short": {
+      "and": [
+        {
+          "left": { "price": "close" },
+          "op": "<",
+          "right": { "ref": "ema_20" }
+        },
+        {
+          "left": { "price": "volume" },
+          "op": ">",
+          "right": { "ref": "sma_volume" }
+        }
+      ]
+    }
+  },
+  "stop_loss": {
+    "type": "fixed_percent",
+    "percent": 2.0
+  },
+  "reverse": {
+    "enabled": true,
+    "mode": "use_entry_opposite"
+  },
+  "hook": {
+    "enabled": false
+  }
+}
+

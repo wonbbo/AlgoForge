@@ -104,6 +104,24 @@
   - 핵심 기능
   - 테스트 시나리오
 
+### Phase 8: 테스트 및 검증
+- **`Phase8_Implementation_Report.md`**
+  - 상세 구현 내용
+  - Canonicalization 모듈
+  - 결정성 테스트 (28개)
+  - 통합 테스트 (28개)
+  - E2E 테스트 (10개)
+
+- **`Phase8_Summary.md`**
+  - 한눈에 보는 요약
+  - 테스트 결과 (80/80 통과)
+  - 커버리지 리포트
+
+- **`Phase8_Quick_Start.md`**
+  - 빠른 시작 가이드
+  - 테스트 실행 방법
+  - 디버깅 팁
+
 ### 설계 문서
 - **`AlgoForge_Draft_to_JSON_Rules.md`**
   - Draft → JSON 변환 규칙
@@ -235,10 +253,12 @@ http://localhost:3000/strategies/builder
 - ✅ 전략 비교 기능
 - ✅ 성능 최적화 (메모이제이션)
 
-### Phase 8: 테스트 ⏳
-- ⏳ 단위 테스트
-- ⏳ 통합 테스트
-- ⏳ E2E 테스트
+### Phase 8: 테스트 및 검증 ✅
+- ✅ 단위 테스트 보강 (80개 테스트)
+- ✅ 통합 테스트 추가 (전체 플로우)
+- ✅ E2E 테스트 구현 (Playwright)
+- ✅ 결정성 테스트 (1000회 검증)
+- ✅ Canonicalization 모듈 분리
 
 ### Phase 9: 문서화 ⏳
 - ⏳ 사용자 가이드

@@ -19,6 +19,7 @@ import { Step2_EntryBuilder } from './Step2_EntryBuilder';
 import { Step3_StopLossSelector } from './Step3_StopLossSelector';
 import { Step4_Advanced } from './Step4_Advanced';
 import type { StrategyDraft, ValidationError } from '@/types/strategy-draft';
+import type { Indicator } from '@/lib/types';
 
 interface StepWizardProps {
   draft: StrategyDraft;
@@ -26,6 +27,8 @@ interface StepWizardProps {
   currentStep: string;
   setCurrentStep: (step: string) => void;
   errors: ValidationError[];
+  availableIndicators: Indicator[];
+  isLoadingIndicators: boolean;
 }
 
 /**
@@ -38,7 +41,9 @@ export function StepWizard({
   updateDraft,
   currentStep,
   setCurrentStep,
-  errors
+  errors,
+  availableIndicators,
+  isLoadingIndicators
 }: StepWizardProps) {
   
   return (
@@ -94,6 +99,8 @@ export function StepWizard({
           <Step2_EntryBuilder
             entry={draft.entry}
             indicators={draft.indicators}
+            availableIndicators={availableIndicators}
+            isLoadingIndicators={isLoadingIndicators}
             onUpdateEntry={(entry) => {
               updateDraft(d => ({ ...d, entry }));
             }}

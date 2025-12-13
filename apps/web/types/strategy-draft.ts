@@ -35,8 +35,8 @@ export interface IndicatorDraft {
   // 고유 ID (사용자가 중복 불가하게 입력 또는 자동 생성)
   id: string;
   
-  // 지표 타입
-  type: 'ema' | 'sma' | 'rsi' | 'atr' | 'price' | 'candle';
+  // 지표 타입 (내장 지표 또는 커스텀 지표 타입)
+  type: string;
   
   // 파라미터 (지표 타입에 따라 다름)
   params: Record<string, any>;
@@ -105,6 +105,7 @@ export interface EntryDraft {
  * 조건 Draft
  * 
  * 예: "ema_fast" > "ema_slow"
+ * 예: "close" > "ema_20" (OHLCV 사용)
  */
 export interface ConditionDraft {
   // 임시 ID (UI 렌더링용)
@@ -112,8 +113,8 @@ export interface ConditionDraft {
   
   // 좌변
   left: {
-    type: 'indicator' | 'number';
-    value: string | number;  // indicator면 id, number면 숫자
+    type: 'indicator' | 'price' | 'number';
+    value: string | number;  // indicator면 id, price면 'open'|'high'|'low'|'close'|'volume', number면 숫자
   };
   
   // 연산자
@@ -121,7 +122,7 @@ export interface ConditionDraft {
   
   // 우변
   right: {
-    type: 'indicator' | 'number';
+    type: 'indicator' | 'price' | 'number';
     value: string | number;
   };
 }

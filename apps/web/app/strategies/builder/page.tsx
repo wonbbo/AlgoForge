@@ -6,14 +6,15 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { StrategyDraft, ValidationError } from '@/types/strategy-draft';
+import type { Indicator } from '@/lib/types';
 import { createEmptyDraft } from '@/lib/strategy-draft-utils';
 import { validateDraft } from '@/lib/draft-validation';
 import { draftToStrategyJSON } from '@/lib/draft-to-json';
-import { strategyApi } from '@/lib/api-client';
+import { strategyApi, indicatorApi } from '@/lib/api-client';
 import { StrategyHeader } from './components/StrategyHeader';
 import { StepWizard } from './components/StepWizard';
 import { JsonPreviewPanel } from './components/JsonPreviewPanel';
@@ -38,6 +39,33 @@ export default function StrategyBuilderPage() {
   
   // 저장 중 상태
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  
+  // 사용 가능한 지표 목록 (다중 출력 필드 정보 포함)
+  const [availableIndicators, setAvailableIndicators] = useState<Indicator[]>([]);
+  const [isLoadingIndicators, setIsLoadingIndicators] = useState<boolean>(true);
+  
+  // 지표 목록 로드
+  useEffect(() => {
+    const loadIndicators = async () => {
+      setIsLoadingIndicators(true);
+      try {
+        const data = await indicatorApi.list();
+        // indicatorApi.list()는 이미 배열을 반환함 (response.indicators)
+        console.log('[Builder] 지표 목록 로드 완료:', data.length, '개');
+        console.log('[Builder] 커스텀 지표:', data.filter(i => i.implementation_type === 'custom').map(i => ({
+          type: i.type,
+          output_fields: i.output_fields
+        })));
+        setAvailableIndicators(data);
+      } catch (err: any) {
+        console.error('지표 목록 로드 실패:', err);
+        // 에러가 발생해도 빌더는 계속 사용 가능 (지표 선택만 제한됨)
+      } finally {
+        setIsLoadingIndicators(false);
+      }
+    };
+    loadIndicators();
+  }, []);
   
   // Draft 업데이트 핸들러
   const updateDraft = (updater: (draft: StrategyDraft) => StrategyDraft) => {
@@ -147,6 +175,8 @@ export default function StrategyBuilderPage() {
             currentStep={currentStep}
             setCurrentStep={setCurrentStep}
             errors={errors}
+            availableIndicators={availableIndicators}
+            isLoadingIndicators={isLoadingIndicators}
           />
         </div>
         

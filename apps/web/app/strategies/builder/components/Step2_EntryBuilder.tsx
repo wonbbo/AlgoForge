@@ -13,10 +13,13 @@ import { Plus, TrendingUp, TrendingDown } from 'lucide-react';
 import { ConditionRow } from './ConditionRow';
 import { createEmptyCondition } from '@/lib/strategy-draft-utils';
 import type { EntryDraft, IndicatorDraft, ConditionDraft } from '@/types/strategy-draft';
+import type { Indicator } from '@/lib/types';
 
 interface Step2Props {
   entry: EntryDraft;
   indicators: IndicatorDraft[];
+  availableIndicators: Indicator[];
+  isLoadingIndicators: boolean;
   onUpdateEntry: (entry: EntryDraft) => void;
 }
 
@@ -29,6 +32,8 @@ interface Step2Props {
 export function Step2_EntryBuilder({
   entry,
   indicators,
+  availableIndicators,
+  isLoadingIndicators,
   onUpdateEntry
 }: Step2Props) {
   
@@ -113,6 +118,15 @@ export function Step2_EntryBuilder({
         </Card>
       )}
       
+      {/* 지표 메타 정보 로딩 안내 */}
+      {indicators.length > 0 && isLoadingIndicators && (
+        <Card className="p-6 bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800">
+          <p className="text-center text-yellow-900 dark:text-yellow-100">
+            ⏳ 지표 정보를 불러오는 중입니다... 잠시만 기다려주세요.
+          </p>
+        </Card>
+      )}
+      
       {/* 롱/숏 조건 탭 */}
       <Tabs defaultValue="long" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -143,6 +157,7 @@ export function Step2_EntryBuilder({
                     <ConditionRow
                       condition={condition}
                       indicators={indicators}
+                      availableIndicators={availableIndicators}
                       onChange={(updated) => handleUpdateLongCondition(index, updated)}
                       onRemove={() => handleRemoveLongCondition(index)}
                     />
@@ -160,7 +175,7 @@ export function Step2_EntryBuilder({
           
           <Button 
             onClick={handleAddLongCondition}
-            disabled={indicators.length === 0}
+            disabled={indicators.length === 0 || isLoadingIndicators}
             className="w-full"
             variant="outline"
           >
@@ -186,6 +201,7 @@ export function Step2_EntryBuilder({
                     <ConditionRow
                       condition={condition}
                       indicators={indicators}
+                      availableIndicators={availableIndicators}
                       onChange={(updated) => handleUpdateShortCondition(index, updated)}
                       onRemove={() => handleRemoveShortCondition(index)}
                     />
@@ -203,7 +219,7 @@ export function Step2_EntryBuilder({
           
           <Button 
             onClick={handleAddShortCondition}
-            disabled={indicators.length === 0}
+            disabled={indicators.length === 0 || isLoadingIndicators}
             className="w-full"
             variant="outline"
           >

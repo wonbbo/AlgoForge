@@ -22,6 +22,9 @@ class Metrics:
         average_pnl: 평균 손익
         profit_factor: 수익 팩터 (총 수익 / 총 손실)
         max_drawdown: 최대 낙폭
+        max_consecutive_wins: 최대 연속 수익 거래 수
+        max_consecutive_losses: 최대 연속 손실 거래 수
+        expectancy: 기대값 (Trading Edge)
         score: 전략 점수 (0~100)
         grade: 등급 (S/A/B/C/D)
     """
@@ -35,6 +38,9 @@ class Metrics:
     average_pnl: float
     profit_factor: float
     max_drawdown: float
+    max_consecutive_wins: int
+    max_consecutive_losses: int
+    expectancy: float
     score: float
     grade: str
 
@@ -79,6 +85,9 @@ class MetricsCalculator:
                 average_pnl=0.0,
                 profit_factor=0.0,
                 max_drawdown=0.0,
+                max_consecutive_wins=0,
+                max_consecutive_losses=0,
+                expectancy=0.0,
                 score=0.0,
                 grade='D'
             )
@@ -117,6 +126,12 @@ class MetricsCalculator:
         # Max Drawdown
         max_drawdown = self._calculate_max_drawdown(trades)
         
+        # 연속 수익/손실 거래수 계산
+        max_consecutive_wins, max_consecutive_losses = self._calculate_consecutive_trades(trades)
+        
+        # Expectancy 계산 (Trading Edge)
+        expectancy = self._calculate_expectancy(trades, winning_trades, losing_trades, trades_count)
+        
         # Score 계산
         score = self._calculate_score(
             win_rate, 
@@ -139,6 +154,9 @@ class MetricsCalculator:
             average_pnl=average_pnl,
             profit_factor=profit_factor,
             max_drawdown=max_drawdown,
+            max_consecutive_wins=max_consecutive_wins,
+            max_consecutive_losses=max_consecutive_losses,
+            expectancy=expectancy,
             score=score,
             grade=grade
         )
@@ -178,6 +196,100 @@ class MetricsCalculator:
                 max_dd = dd
         
         return max_dd
+    
+    def _calculate_consecutive_trades(self, trades: List[Trade]) -> tuple[int, int]:
+        """
+        최대 연속 수익/손실 거래수 계산
+        
+        Args:
+            trades: 거래 목록
+        
+        Returns:
+            tuple[int, int]: (최대 연속 수익 거래수, 최대 연속 손실 거래수)
+            
+        Note:
+            거래는 entry_timestamp 순서대로 정렬되어 있다고 가정
+        """
+        if not trades:
+            return 0, 0
+        
+        max_wins = 0
+        max_losses = 0
+        current_wins = 0
+        current_losses = 0
+        
+        for trade in trades:
+            if trade.is_winning_trade():
+                # 수익 거래: 연승 카운트 증가, 연패 카운트 초기화
+                current_wins += 1
+                current_losses = 0
+                
+                # 최대 연승 갱신
+                if current_wins > max_wins:
+                    max_wins = current_wins
+            else:
+                # 손실 거래: 연패 카운트 증가, 연승 카운트 초기화
+                current_losses += 1
+                current_wins = 0
+                
+                # 최대 연패 갱신
+                if current_losses > max_losses:
+                    max_losses = current_losses
+        
+        return max_wins, max_losses
+    
+    def _calculate_expectancy(
+        self, 
+        trades: List[Trade], 
+        winning_trades: int, 
+        losing_trades: int, 
+        trades_count: int
+    ) -> float:
+        """
+        기대값(Expectancy) 계산
+        
+        Args:
+            trades: 거래 목록
+            winning_trades: 수익 거래 수
+            losing_trades: 손실 거래 수
+            trades_count: 총 거래 수
+        
+        Returns:
+            float: 기대값 = (승률 × 평균수익) - (패율 × 평균손실)
+            
+        Note:
+            - 승률 = winning_trades / trades_count
+            - 패율 = losing_trades / trades_count
+            - 평균수익 = 수익 거래들의 평균 PnL
+            - 평균손실 = 손실 거래들의 평균 PnL (절대값)
+        """
+        if trades_count == 0:
+            return 0.0
+        
+        # 수익 거래들의 PnL 합계
+        total_win_pnl = sum(
+            t.calculate_total_pnl() for t in trades 
+            if t.calculate_total_pnl() > 0
+        )
+        
+        # 손실 거래들의 PnL 합계 (절대값)
+        total_loss_pnl = abs(sum(
+            t.calculate_total_pnl() for t in trades 
+            if t.calculate_total_pnl() <= 0
+        ))
+        
+        # 평균 수익/손실 계산
+        avg_win = total_win_pnl / winning_trades if winning_trades > 0 else 0.0
+        avg_loss = total_loss_pnl / losing_trades if losing_trades > 0 else 0.0
+        
+        # 승률과 패율
+        win_rate = winning_trades / trades_count
+        loss_rate = losing_trades / trades_count
+        
+        # Expectancy = (승률 × 평균수익) - (패율 × 평균손실)
+        expectancy = (win_rate * avg_win) - (loss_rate * avg_loss)
+        
+        return expectancy
     
     def _calculate_score(
         self, 

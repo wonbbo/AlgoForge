@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS runs (
     started_at INTEGER,
     completed_at INTEGER,
     run_artifacts TEXT,  -- JSON (warnings 등)
+    progress_percent REAL DEFAULT 0,  -- 진행률 (0~100)
+    processed_bars INTEGER DEFAULT 0,  -- 처리된 봉 개수
+    total_bars INTEGER DEFAULT 0,  -- 전체 봉 개수
     FOREIGN KEY (dataset_id) REFERENCES datasets(dataset_id) ON DELETE RESTRICT,
     FOREIGN KEY (strategy_id) REFERENCES strategies(strategy_id) ON DELETE RESTRICT
 );
@@ -84,6 +87,9 @@ CREATE TABLE IF NOT EXISTS metrics (
     average_pnl REAL NOT NULL,
     profit_factor REAL NOT NULL,
     max_drawdown REAL NOT NULL,
+    max_consecutive_wins INTEGER NOT NULL,
+    max_consecutive_losses INTEGER NOT NULL,
+    expectancy REAL NOT NULL,
     score REAL NOT NULL,
     grade TEXT NOT NULL,
     FOREIGN KEY (run_id) REFERENCES runs(run_id) ON DELETE CASCADE

@@ -37,6 +37,9 @@ class RiskManager:
         self.initial_balance = initial_balance
         self.risk_percent = risk_percent
         self.risk_reward_ratio = risk_reward_ratio
+        
+        # 현재 잔고 (50거래마다 재평가됨)
+        self.current_balance = initial_balance
     
     def calculate_position_size(
         self, 
@@ -56,6 +59,8 @@ class RiskManager:
         Note:
             risk == 0 인 경우 position_size = 0 반환
             이 경우 호출자는 진입을 스킵하고 warning을 기록해야 함
+            
+            50거래마다 재평가된 current_balance를 기준으로 포지션 크기 계산
         """
         if entry_price <= 0:
             raise ValueError("entry_price는 양수여야 합니다")
@@ -71,11 +76,19 @@ class RiskManager:
             return 0.0, 0.0
         
         # 포지션 크기 계산
-        # 공식: (초기 자산 * 리스크 비율) / 리스크
+        # 공식: (현재 잔고 * 리스크 비율) / 리스크
         # 예: (10000 * 0.02) / 100 = 2 계약
-        position_size = (self.initial_balance * self.risk_percent) / risk
+        # 50거래마다 current_balance가 재평가됨
+        position_size_raw = (self.current_balance * self.risk_percent) / risk
         
-        return position_size, risk
+        # 포지션 크기를 정수로 반올림
+        position_size = round(position_size_raw)
+        
+        # 반올림 후 0이 되는 경우 방지 (최소 1)
+        if position_size == 0 and position_size_raw > 0:
+            position_size = 1
+        
+        return float(position_size), risk
     
     def calculate_tp1_price(
         self, 
@@ -137,4 +150,20 @@ class RiskManager:
         
         # TP1 도달 플래그 설정
         position.tp1_hit = True
+    
+    def update_balance(self, new_balance: float) -> None:
+        """
+        현재 잔고 업데이트
+        
+        50거래마다 호출되어 총자산을 재평가함
+        재평가된 잔고를 기준으로 이후 포지션 크기가 계산됨
+        
+        Args:
+            new_balance: 새로운 잔고 (초기 자산 + 누적 PnL)
+        
+        Note:
+            레버리지를 사용한다는 가정하에 잔고가 0 이하가 되어도 허용
+            (실제 파산 로직은 향후 확장 시 추가)
+        """
+        self.current_balance = new_balance
 
