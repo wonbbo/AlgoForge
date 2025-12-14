@@ -83,6 +83,8 @@ coverage/
 *.sqlite
 *.sqlite3
 db/*.db
+db/*.db-shm
+db/*.db-wal
 
 # 데이터셋 (실제 데이터)
 datasets/*.csv
@@ -137,3 +139,5 @@ $RECYCLE.BIN/
 # Backup files
 *.bak
 *.backup
+
+.gitignore
