@@ -224,6 +224,26 @@ class Database:
                 cursor.execute(query)
             return cursor.rowcount
     
+    def execute_bulk_insert(
+        self,
+        query: str,
+        data: list
+    ) -> int:
+        """
+        대량 INSERT 쿼리 실행 (executemany 사용)
+        
+        Args:
+            query: SQL INSERT 쿼리 문자열
+            data: 파라미터 리스트 (각 항목은 tuple)
+            
+        Returns:
+            int: 삽입된 행 수
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.executemany(query, data)
+            return cursor.rowcount
+    
     def reset_database(self) -> None:
         """
         데이터베이스 초기화 (모든 테이블 삭제 후 재생성)

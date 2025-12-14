@@ -26,6 +26,12 @@ from .trade import (
 from .metrics import (
     MetricsResponse
 )
+from .preset import (
+    PresetCreate,
+    PresetUpdate,
+    PresetResponse,
+    PresetList
+)
 
 __all__ = [
     'DatasetCreate',
@@ -42,4 +48,8 @@ __all__ = [
     'TradeList',
     'TradeLegResponse',
     'MetricsResponse',
+    'PresetCreate',
+    'PresetUpdate',
+    'PresetResponse',
+    'PresetList',
 ]

@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
-from apps.api.routers import datasets, strategies, runs, indicators
+from apps.api.routers import datasets, strategies, runs, indicators, presets
 from apps.api.utils.exceptions import AlgoForgeException
 from apps.api.utils.responses import error_response
 from apps.api.db.database import get_database
@@ -32,7 +32,8 @@ app = FastAPI(
     version="1.0.0",
     description="백테스트 엔진 API - 전략 개발·비교·개선 목적의 백테스팅 도구",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    redirect_slashes=False  # trailing slash 자동 리다이렉트 비활성화 (CORS 문제 방지)
 )
 
 
@@ -125,6 +126,12 @@ app.include_router(
     indicators.router,
     prefix="/api/indicators",
     tags=["indicators"]
+)
+
+app.include_router(
+    presets.router,
+    prefix="/api/presets",
+    tags=["presets"]
 )
 
 

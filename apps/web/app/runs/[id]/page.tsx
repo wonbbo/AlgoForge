@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation"
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { runApi, datasetApi, strategyApi } from "@/lib/api-client"
-import type { Run, Metrics, Trade, Dataset, Strategy } from "@/lib/types"
+import { runApi, datasetApi, strategyApi, presetApi } from "@/lib/api-client"
+import type { Run, Metrics, Trade, Dataset, Strategy, Preset } from "@/lib/types"
 import { formatTimestamp, formatCurrency, formatPercent, getGradeColor, getStatusColor } from "@/lib/utils"
 import {
   Table,
@@ -33,6 +33,7 @@ export default function RunDetailPage() {
   const [run, setRun] = useState<Run | null>(null)
   const [dataset, setDataset] = useState<Dataset | null>(null)
   const [strategy, setStrategy] = useState<Strategy | null>(null)
+  const [preset, setPreset] = useState<Preset | null>(null)
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,6 +56,16 @@ export default function RunDetailPage() {
         ])
         setDataset(datasetData)
         setStrategy(strategyData)
+
+        // 프리셋 정보 로드 (preset_id가 있으면)
+        if (runData.preset_id) {
+          try {
+            const presetData = await presetApi.get(runData.preset_id)
+            setPreset(presetData)
+          } catch (error) {
+            console.error('Failed to load preset:', error)
+          }
+        }
 
         // 완료된 Run의 경우 Metrics와 Trades 로드
         if (runData.status === 'COMPLETED') {
@@ -177,6 +188,41 @@ export default function RunDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 프리셋 정보 (있으면) */}
+      {preset && (
+        <Card>
+          <CardHeader>
+            <CardTitle>사용된 프리셋 설정</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">프리셋 이름</p>
+                <p className="font-medium">{preset.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">리스크 비율</p>
+                <p className="font-medium">{(preset.risk_percent * 100).toFixed(2)}%</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">리스크 보상 비율</p>
+                <p className="font-medium">{preset.risk_reward_ratio}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">재평가 주기</p>
+                <p className="font-medium">{preset.rebalance_interval} 거래</p>
+              </div>
+            </div>
+            {preset.description && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground mb-1">설명</p>
+                <p className="text-sm">{preset.description}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Metrics (완료된 경우만) */}
       {metrics && (
@@ -357,6 +403,7 @@ export default function RunDetailPage() {
                           <TableHead>방향</TableHead>
                           <TableHead>진입가</TableHead>
                           <TableHead>진입 시각</TableHead>
+                          <TableHead className="text-right">레버리지</TableHead>
                           <TableHead>Legs</TableHead>
                           <TableHead className="text-right">손익</TableHead>
                           <TableHead className="text-right">Trading Edge</TableHead>
@@ -397,6 +444,9 @@ export default function RunDetailPage() {
                               </TableCell>
                               <TableCell className="text-sm">
                                 {formatTimestamp(trade.entry_timestamp)}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {trade.leverage ? Math.round(trade.leverage) + 'x' : '1x'}
                               </TableCell>
                               <TableCell className="text-sm">
                                 {trade.legs.map(leg => leg.exit_type).join(', ')}

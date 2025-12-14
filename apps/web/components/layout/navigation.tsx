@@ -8,7 +8,8 @@ import {
   Database, 
   GitBranch, 
   PlayCircle,
-  Gauge
+  Gauge,
+  Settings
 } from "lucide-react"
 
 /**
@@ -42,6 +43,11 @@ export function Navigation() {
       href: "/runs",
       label: "Run",
       icon: PlayCircle,
+    },
+    {
+      href: "/presets",
+      label: "설정 프리셋",
+      icon: Settings,
     },
   ]
 

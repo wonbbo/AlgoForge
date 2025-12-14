@@ -10,6 +10,8 @@ import logging
 import time
 import traceback
 import json
+import os
+from pathlib import Path
 
 from apps.api.db.database import get_database
 from apps.api.db.repositories import (
@@ -18,7 +20,8 @@ from apps.api.db.repositories import (
     StrategyRepository,
     TradeRepository,
     TradeLegRepository,
-    MetricsRepository
+    MetricsRepository,
+    PresetRepository
 )
 from apps.api.db.utils import load_bars_from_csv
 from apps.api.schemas import (
@@ -59,12 +62,33 @@ def execute_backtest(run_id: int):
         trade_repo = TradeRepository(db)
         trade_leg_repo = TradeLegRepository(db)
         metrics_repo = MetricsRepository(db)
+        preset_repo = PresetRepository(db)
         
         # Run 정보 조회
         run = run_repo.get_by_id(run_id)
         if not run:
             logger.error(f"Run {run_id} not found")
             return
+        
+        # 프리셋 정보 조회 (preset_id가 있으면)
+        preset = None
+        if run.get('preset_id'):
+            preset = preset_repo.get_by_id(run['preset_id'])
+            if not preset:
+                logger.warning(f"Preset {run['preset_id']} not found, using default")
+                preset = preset_repo.get_default()
+        else:
+            # preset_id가 없으면 기본 프리셋 사용
+            preset = preset_repo.get_default()
+        
+        # 프리셋이 없으면 기본값 사용 (하드코딩)
+        if not preset:
+            logger.warning("No preset found, using hardcoded defaults")
+            preset = {
+                'risk_percent': 0.02,
+                'risk_reward_ratio': 1.5,
+                'rebalance_interval': 50
+            }
         
         # 상태를 RUNNING으로 변경
         run_repo.update_status(
@@ -151,11 +175,15 @@ def execute_backtest(run_id: int):
             except Exception as e:
                 logger.error(f"진행률 업데이트 실패: {str(e)}")
         
-        # 백테스트 엔진 실행
+        # 백테스트 엔진 실행 (DB 연결 전달하여 레버리지 데이터 로드)
         engine = BacktestEngine(
             initial_balance=run["initial_balance"],
             strategy_func=strategy_func,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            db_conn=db,  # DB 연결 전달
+            risk_percent=preset['risk_percent'],
+            risk_reward_ratio=preset['risk_reward_ratio'],
+            rebalance_interval=preset['rebalance_interval']
         )
         
         trades = engine.run(bars)
@@ -229,6 +257,7 @@ async def create_run(run_create: RunCreate, background_tasks: BackgroundTasks):
         run_repo = RunRepository(db)
         dataset_repo = DatasetRepository(db)
         strategy_repo = StrategyRepository(db)
+        preset_repo = PresetRepository(db)
         
         # Dataset 존재 확인
         dataset = dataset_repo.get_by_id(run_create.dataset_id)
@@ -240,12 +269,35 @@ async def create_run(run_create: RunCreate, background_tasks: BackgroundTasks):
         if not strategy:
             raise StrategyNotFoundError(run_create.strategy_id)
         
+        # Preset 확인 및 처리
+        preset_id = run_create.preset_id
+        if preset_id is not None:
+            # 지정된 프리셋이 있는지 확인
+            preset = preset_repo.get_by_id(preset_id)
+            if not preset:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Preset {preset_id}를 찾을 수 없습니다"
+                )
+        else:
+            # 기본 프리셋 사용
+            preset = preset_repo.get_default()
+            if preset:
+                preset_id = preset['preset_id']
+            else:
+                # 기본 프리셋이 없으면 None으로 유지 (하드코딩 값 사용)
+                logger.warning("No default preset found, will use hardcoded defaults")
+        
+        # 프리셋에서 initial_balance 가져오기
+        initial_balance = preset['initial_balance'] if preset else 1000.0
+        
         # Run 생성
         run_id = run_repo.create(
             dataset_id=run_create.dataset_id,
             strategy_id=run_create.strategy_id,
             engine_version=ENGINE_VERSION,
-            initial_balance=run_create.initial_balance
+            initial_balance=initial_balance,
+            preset_id=preset_id
         )
         
         # Background Task로 백테스트 실행

@@ -8,6 +8,7 @@
 - TradeRepository: trades 테이블 관리
 - TradeLegRepository: trade_legs 테이블 관리
 - MetricsRepository: metrics 테이블 관리
+- LeverageBracketRepository: leverage_brackets 테이블 관리
 """
 
 import json
@@ -268,7 +269,8 @@ class RunRepository:
         strategy_id: int,
         engine_version: str,
         initial_balance: float,
-        status: str = "PENDING"
+        status: str = "PENDING",
+        preset_id: Optional[int] = None
     ) -> int:
         """
         Run 생성
@@ -279,19 +281,20 @@ class RunRepository:
             engine_version: 엔진 버전
             initial_balance: 초기 자산
             status: 상태 (기본값: PENDING)
+            preset_id: 프리셋 ID (선택)
             
         Returns:
             int: 생성된 run_id
         """
         query = """
         INSERT INTO runs (
-            dataset_id, strategy_id, status, engine_version, initial_balance
-        ) VALUES (?, ?, ?, ?, ?)
+            dataset_id, strategy_id, status, engine_version, initial_balance, preset_id
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
         
         return self.db.execute_insert(
             query,
-            (dataset_id, strategy_id, status, engine_version, initial_balance)
+            (dataset_id, strategy_id, status, engine_version, initial_balance, preset_id)
         )
     
     def get_by_id(self, run_id: int) -> Optional[Dict[str, Any]]:
@@ -570,8 +573,8 @@ class TradeRepository:
         INSERT INTO trades (
             run_id, direction, entry_timestamp, entry_price,
             position_size, initial_risk, stop_loss, take_profit_1,
-            is_closed, total_pnl, balance_at_entry
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            is_closed, total_pnl, balance_at_entry, leverage
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         return self.db.execute_insert(
@@ -587,7 +590,8 @@ class TradeRepository:
                 trade.take_profit_1,
                 1 if trade.is_closed else 0,
                 trade.calculate_total_pnl(),
-                trade.balance_at_entry
+                trade.balance_at_entry,
+                trade.leverage  # 레버리지 정보 저장
             )
         )
     
@@ -750,4 +754,499 @@ class MetricsRepository:
         if results:
             return dict(results[0])
         return None
+
+
+class LeverageBracketRepository:
+    """
+    leverage_brackets 테이블 관리 Repository
+    
+    주요 기능:
+    - 레버리지 구간 생성, 조회, 수정, 삭제
+    - 대량 생성 (bulk_create)
+    """
+    
+    def __init__(self, db: Database):
+        self.db = db
+    
+    def get_all(self) -> List[Dict[str, Any]]:
+        """
+        모든 레버리지 구간 조회 (bracket_min 기준 오름차순)
+        
+        Returns:
+            List[Dict[str, Any]]: 레버리지 구간 목록
+        """
+        query = """
+        SELECT 
+            bracket_id,
+            bracket_min,
+            bracket_max,
+            max_leverage,
+            m_margin_rate,
+            m_amount,
+            created_at
+        FROM leverage_brackets
+        ORDER BY bracket_min ASC
+        """
+        results = self.db.execute_query(query)
+        return [dict(row) for row in results]
+    
+    def get_by_id(self, bracket_id: int) -> Optional[Dict[str, Any]]:
+        """
+        ID로 레버리지 구간 조회
+        
+        Args:
+            bracket_id: 구간 ID
+        
+        Returns:
+            Optional[Dict[str, Any]]: 레버리지 구간 정보 (없으면 None)
+        """
+        query = """
+        SELECT 
+            bracket_id,
+            bracket_min,
+            bracket_max,
+            max_leverage,
+            m_margin_rate,
+            m_amount,
+            created_at
+        FROM leverage_brackets
+        WHERE bracket_id = ?
+        """
+        results = self.db.execute_query(query, (bracket_id,))
+        
+        if results:
+            return dict(results[0])
+        return None
+    
+    def create(
+        self, 
+        bracket_min: float, 
+        bracket_max: float, 
+        max_leverage: float,
+        m_margin_rate: float,
+        m_amount: float
+    ) -> int:
+        """
+        레버리지 구간 생성
+        
+        Args:
+            bracket_min: 최소 명목가치
+            bracket_max: 최대 명목가치
+            max_leverage: 최대 레버리지
+            m_margin_rate: 유지 증거금률
+            m_amount: 유지 증거금 고정값
+        
+        Returns:
+            int: 생성된 구간 ID
+        
+        Raises:
+            Exception: 동일한 구간이 이미 존재하는 경우
+        """
+        query = """
+        INSERT INTO leverage_brackets (
+            bracket_min,
+            bracket_max,
+            max_leverage,
+            m_margin_rate,
+            m_amount,
+            created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """
+        
+        created_at = int(time.time())
+        
+        return self.db.execute_insert(
+            query,
+            (bracket_min, bracket_max, max_leverage, m_margin_rate, m_amount, created_at)
+        )
+    
+    def update(
+        self,
+        bracket_id: int,
+        bracket_min: float,
+        bracket_max: float,
+        max_leverage: float,
+        m_margin_rate: float,
+        m_amount: float
+    ) -> int:
+        """
+        레버리지 구간 수정
+        
+        Args:
+            bracket_id: 구간 ID
+            bracket_min: 최소 명목가치
+            bracket_max: 최대 명목가치
+            max_leverage: 최대 레버리지
+            m_margin_rate: 유지 증거금률
+            m_amount: 유지 증거금 고정값
+        
+        Returns:
+            int: 수정된 행 개수
+        """
+        query = """
+        UPDATE leverage_brackets
+        SET 
+            bracket_min = ?,
+            bracket_max = ?,
+            max_leverage = ?,
+            m_margin_rate = ?,
+            m_amount = ?
+        WHERE bracket_id = ?
+        """
+        
+        return self.db.execute_update(
+            query,
+            (bracket_min, bracket_max, max_leverage, m_margin_rate, m_amount, bracket_id)
+        )
+    
+    def delete(self, bracket_id: int) -> int:
+        """
+        레버리지 구간 삭제
+        
+        Args:
+            bracket_id: 구간 ID
+        
+        Returns:
+            int: 삭제된 행 개수
+        """
+        query = "DELETE FROM leverage_brackets WHERE bracket_id = ?"
+        return self.db.execute_delete(query, (bracket_id,))
+    
+    def delete_all(self) -> int:
+        """
+        모든 레버리지 구간 삭제
+        
+        Returns:
+            int: 삭제된 행 개수
+        """
+        query = "DELETE FROM leverage_brackets"
+        return self.db.execute_delete(query)
+    
+    def count(self) -> int:
+        """
+        레버리지 구간 개수 조회
+        
+        Returns:
+            int: 구간 개수
+        """
+        query = "SELECT COUNT(*) as cnt FROM leverage_brackets"
+        results = self.db.execute_query(query)
+        
+        if results:
+            return results[0]['cnt']
+        return 0
+    
+    def bulk_create(self, brackets: List[Dict[str, Any]]) -> int:
+        """
+        레버리지 구간 대량 생성
+        
+        Args:
+            brackets: 레버리지 구간 목록
+                각 항목은 다음 키를 포함해야 함:
+                - bracket_min, bracket_max, max_leverage, m_margin_rate, m_amount
+        
+        Returns:
+            int: 생성된 구간 개수
+        """
+        query = """
+        INSERT INTO leverage_brackets (
+            bracket_min,
+            bracket_max,
+            max_leverage,
+            m_margin_rate,
+            m_amount,
+            created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """
+        
+        current_time = int(time.time())
+        
+        data = [
+            (
+                b['bracket_min'],
+                b['bracket_max'],
+                b['max_leverage'],
+                b['m_margin_rate'],
+                b['m_amount'],
+                current_time
+            )
+            for b in brackets
+        ]
+        
+        return self.db.execute_bulk_insert(query, data)
+
+
+class PresetRepository:
+    """
+    run_config_presets 테이블 관리 Repository
+    
+    주요 기능:
+    - 프리셋 생성, 조회, 수정, 삭제
+    - 기본 프리셋 관리
+    """
+    
+    def __init__(self, db: Database):
+        self.db = db
+    
+    def create(
+        self,
+        name: str,
+        initial_balance: float,
+        risk_percent: float,
+        risk_reward_ratio: float,
+        rebalance_interval: int,
+        description: Optional[str] = None
+    ) -> int:
+        """
+        프리셋 생성
+        
+        Args:
+            name: 프리셋 이름
+            initial_balance: 초기 자산
+            risk_percent: 리스크 비율 (0.02 = 2%)
+            risk_reward_ratio: 리스크 보상 비율
+            rebalance_interval: 재평가 주기
+            description: 설명 (선택)
+        
+        Returns:
+            생성된 프리셋 ID
+        """
+        current_time = int(time.time())
+        
+        query = """
+            INSERT INTO run_config_presets (
+                name, description, initial_balance, risk_percent,
+                risk_reward_ratio, rebalance_interval, is_default,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+        """
+        
+        return self.db.execute_insert(
+            query,
+            (name, description, initial_balance, risk_percent,
+             risk_reward_ratio, rebalance_interval, current_time, current_time)
+        )
+    
+    def get_by_id(self, preset_id: int) -> Optional[Dict[str, Any]]:
+        """
+        프리셋 ID로 조회
+        
+        Args:
+            preset_id: 프리셋 ID
+        
+        Returns:
+            프리셋 정보 또는 None
+        """
+        query = """
+            SELECT 
+                preset_id, name, description, initial_balance,
+                risk_percent, risk_reward_ratio, rebalance_interval,
+                is_default, created_at, updated_at
+            FROM run_config_presets
+            WHERE preset_id = ?
+        """
+        
+        results = self.db.execute_query(query, (preset_id,))
+        
+        if not results:
+            return None
+        
+        row = results[0]
+        return {
+            'preset_id': row['preset_id'],
+            'name': row['name'],
+            'description': row['description'],
+            'initial_balance': row['initial_balance'],
+            'risk_percent': row['risk_percent'],
+            'risk_reward_ratio': row['risk_reward_ratio'],
+            'rebalance_interval': row['rebalance_interval'],
+            'is_default': bool(row['is_default']),
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at']
+        }
+    
+    def get_all(self) -> List[Dict[str, Any]]:
+        """
+        모든 프리셋 조회
+        
+        Returns:
+            프리셋 목록 (is_default DESC, name ASC 정렬)
+        """
+        query = """
+            SELECT 
+                preset_id, name, description, initial_balance,
+                risk_percent, risk_reward_ratio, rebalance_interval,
+                is_default, created_at, updated_at
+            FROM run_config_presets
+            ORDER BY is_default DESC, name ASC
+        """
+        
+        results = self.db.execute_query(query)
+        
+        return [
+            {
+                'preset_id': row['preset_id'],
+                'name': row['name'],
+                'description': row['description'],
+                'initial_balance': row['initial_balance'],
+                'risk_percent': row['risk_percent'],
+                'risk_reward_ratio': row['risk_reward_ratio'],
+                'rebalance_interval': row['rebalance_interval'],
+                'is_default': bool(row['is_default']),
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at']
+            }
+            for row in results
+        ]
+    
+    def get_default(self) -> Optional[Dict[str, Any]]:
+        """
+        기본 프리셋 조회
+        
+        Returns:
+            기본 프리셋 정보 또는 None
+        """
+        query = """
+            SELECT 
+                preset_id, name, description, initial_balance,
+                risk_percent, risk_reward_ratio, rebalance_interval,
+                is_default, created_at, updated_at
+            FROM run_config_presets
+            WHERE is_default = 1
+            LIMIT 1
+        """
+        
+        results = self.db.execute_query(query)
+        
+        if not results:
+            return None
+        
+        row = results[0]
+        return {
+            'preset_id': row['preset_id'],
+            'name': row['name'],
+            'description': row['description'],
+            'initial_balance': row['initial_balance'],
+            'risk_percent': row['risk_percent'],
+            'risk_reward_ratio': row['risk_reward_ratio'],
+            'rebalance_interval': row['rebalance_interval'],
+            'is_default': bool(row['is_default']),
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at']
+        }
+    
+    def update(
+        self,
+        preset_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        initial_balance: Optional[float] = None,
+        risk_percent: Optional[float] = None,
+        risk_reward_ratio: Optional[float] = None,
+        rebalance_interval: Optional[int] = None
+    ) -> None:
+        """
+        프리셋 수정
+        
+        Args:
+            preset_id: 프리셋 ID
+            name: 프리셋 이름 (선택)
+            description: 설명 (선택)
+            initial_balance: 초기 자산 (선택)
+            risk_percent: 리스크 비율 (선택)
+            risk_reward_ratio: 리스크 보상 비율 (선택)
+            rebalance_interval: 재평가 주기 (선택)
+        """
+        # 변경할 필드만 업데이트
+        updates = []
+        params = []
+        
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        
+        if initial_balance is not None:
+            updates.append("initial_balance = ?")
+            params.append(initial_balance)
+        
+        if risk_percent is not None:
+            updates.append("risk_percent = ?")
+            params.append(risk_percent)
+        
+        if risk_reward_ratio is not None:
+            updates.append("risk_reward_ratio = ?")
+            params.append(risk_reward_ratio)
+        
+        if rebalance_interval is not None:
+            updates.append("rebalance_interval = ?")
+            params.append(rebalance_interval)
+        
+        if not updates:
+            return
+        
+        # updated_at 항상 업데이트
+        updates.append("updated_at = ?")
+        params.append(int(time.time()))
+        
+        # preset_id를 마지막 파라미터로 추가
+        params.append(preset_id)
+        
+        query = f"""
+            UPDATE run_config_presets
+            SET {', '.join(updates)}
+            WHERE preset_id = ?
+        """
+        
+        self.db.execute_update(query, tuple(params))
+    
+    def delete(self, preset_id: int) -> None:
+        """
+        프리셋 삭제
+        
+        Args:
+            preset_id: 프리셋 ID
+        
+        Note:
+            기본 프리셋은 삭제할 수 없음 (호출자가 확인해야 함)
+        """
+        query = "DELETE FROM run_config_presets WHERE preset_id = ?"
+        self.db.execute_update(query, (preset_id,))
+    
+    def set_default(self, preset_id: int) -> None:
+        """
+        기본 프리셋 설정
+        
+        기존 기본 프리셋을 해제하고 지정된 프리셋을 기본으로 설정
+        
+        Args:
+            preset_id: 기본으로 설정할 프리셋 ID
+        """
+        # 트랜잭션으로 처리
+        with self.db.get_connection() as conn:
+            # 모든 프리셋의 is_default를 0으로 설정
+            conn.execute("UPDATE run_config_presets SET is_default = 0")
+            
+            # 지정된 프리셋의 is_default를 1로 설정
+            conn.execute(
+                "UPDATE run_config_presets SET is_default = 1, updated_at = ? WHERE preset_id = ?",
+                (int(time.time()), preset_id)
+            )
+            
+            conn.commit()
+    
+    def count(self) -> int:
+        """
+        프리셋 개수 조회
+        
+        Returns:
+            프리셋 개수
+        """
+        query = "SELECT COUNT(*) as count FROM run_config_presets"
+        results = self.db.execute_query(query)
+        return results[0]['count'] if results else 0
 

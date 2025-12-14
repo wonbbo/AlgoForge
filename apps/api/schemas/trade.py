@@ -33,6 +33,7 @@ class TradeResponse(BaseModel):
     stop_loss: float
     take_profit_1: float
     balance_at_entry: Optional[float] = None  # 진입 시점의 잔고
+    leverage: float = 1.0  # 사용한 레버리지 (기본값 1.0)
     is_closed: bool
     total_pnl: Optional[float]
     legs: list[TradeLegResponse] = []

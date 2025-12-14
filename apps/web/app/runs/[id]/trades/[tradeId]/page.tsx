@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { runApi } from "@/lib/api-client"
 import type { Trade, ChartDataResponse, Run } from "@/lib/types"
-import { formatTimestamp, formatCurrency, formatPercent, formatPrice } from "@/lib/utils"
+import { formatTimestamp, formatCurrency, formatPercent, formatPrice, formatNumber } from "@/lib/utils"
 import {
   Table,
   TableBody,
@@ -150,7 +150,7 @@ export default function TradeDetailPage() {
         <CardContent>
           <div className="space-y-4">
             {/* 첫 번째 줄 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">진입 시각</p>
                 <p className="font-medium">{formatTimestamp(trade.entry_timestamp)}</p>
@@ -161,7 +161,13 @@ export default function TradeDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">포지션 크기</p>
-                <p className="font-medium">{Math.round(trade.position_size)}</p>
+                <p className="font-medium">{formatNumber(trade.position_size)} 계약</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">레버리지</p>
+                <p className="font-medium text-blue-600 dark:text-blue-400">
+                  {trade.leverage ? Math.round(trade.leverage) + 'x' : '1x'}
+                </p>
               </div>
             </div>
             

@@ -24,6 +24,8 @@ class Trade:
         initial_risk: 초기 리스크
         stop_loss: 손절가
         take_profit_1: 1차 익절가
+        balance_at_entry: 진입 시점의 잔고 (리스크 제한 계산용)
+        leverage: 사용한 레버리지 (명목가치 / 잔고)
         legs: 거래 구간 목록 (최대 2개: TP1 + FINAL)
         is_closed: 거래 종료 여부
     """
@@ -36,6 +38,7 @@ class Trade:
     stop_loss: float
     take_profit_1: float
     balance_at_entry: float = 0.0  # 진입 시점의 잔고 (리스크 제한 계산용)
+    leverage: float = 1.0  # 사용한 레버리지 (기본값 1.0 = 레버리지 없음)
     
     # 거래 종료 정보
     legs: List[TradeLeg] = field(default_factory=list)

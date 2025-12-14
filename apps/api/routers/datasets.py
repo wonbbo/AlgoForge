@@ -76,7 +76,7 @@ async def create_dataset(
         
         # CSV 파일 로드 및 검증
         try:
-            bars, metadata = load_bars_from_csv(str(temp_file_path))
+            bars, df, metadata = load_bars_from_csv(str(temp_file_path))
         except Exception as e:
             # 임시 파일 삭제
             temp_file_path.unlink()

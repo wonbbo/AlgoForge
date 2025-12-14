@@ -30,7 +30,11 @@ class BacktestEngine:
         self, 
         initial_balance: float,
         strategy_func: Callable[[Bar], Optional[Dict[str, Any]]],
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+        db_conn: Optional[Any] = None,
+        risk_percent: float = 0.02,
+        risk_reward_ratio: float = 1.5,
+        rebalance_interval: int = 50
     ):
         """
         Args:
@@ -41,21 +45,34 @@ class BacktestEngine:
             progress_callback: 진행률 콜백 함수 (선택)
                 입력: (processed_bars: int, total_bars: int)
                 출력: None
+            db_conn: 데이터베이스 연결 객체 (레버리지 데이터 로드용, 선택)
+            risk_percent: 거래당 최대 손실 비율 (기본 0.02 = 2%, 프리셋에서 설정)
+            risk_reward_ratio: 리스크 대비 보상 비율 (기본 1.5, 프리셋에서 설정)
+            rebalance_interval: 잔고 재평가 주기 (기본 50거래, 프리셋에서 설정)
         """
         if initial_balance <= 0:
             raise ValueError("초기 잔고는 0보다 커야 합니다")
         
+        if rebalance_interval < 1:
+            raise ValueError("rebalance_interval은 1 이상이어야 합니다")
+        
         self.initial_balance = initial_balance
         self.strategy_func = strategy_func
-        self.risk_manager = RiskManager(initial_balance)
+        self.risk_manager = RiskManager(
+            initial_balance, 
+            risk_percent=risk_percent,
+            risk_reward_ratio=risk_reward_ratio,
+            db_conn=db_conn
+        )
         self.progress_callback = progress_callback
+        self.rebalance_interval = rebalance_interval
         
         # 상태 관리
         self.current_position: Optional[Position] = None
         self.trades: List[Trade] = []
         self.trade_id_counter = 1
         
-        # 거래 완료 카운터 (50거래마다 잔고 재평가용)
+        # 거래 완료 카운터 (잔고 재평가용)
         self.completed_trades_count = 0
         
         # 경고 메시지 저장 (run_artifacts에 기록될 내용)
@@ -360,8 +377,8 @@ class BacktestEngine:
         # 거래 완료 카운터 증가
         self.completed_trades_count += 1
         
-        # 50거래마다 잔고 재평가
-        if self.completed_trades_count % 50 == 0:
+        # 설정된 주기마다 잔고 재평가
+        if self.completed_trades_count % self.rebalance_interval == 0:
             # 현재 잔고 = 초기 자산 + 모든 완료된 거래의 누적 PnL
             total_pnl = sum(t.calculate_total_pnl() for t in self.trades)
             current_balance = self.initial_balance + total_pnl
@@ -445,8 +462,8 @@ class BacktestEngine:
             )
             return
         
-        # 포지션 크기 계산
-        position_size, risk = self.risk_manager.calculate_position_size(
+        # 포지션 크기 및 레버리지 계산
+        position_size, risk, leverage = self.risk_manager.calculate_position_size(
             entry_price, 
             stop_loss
         )
@@ -480,7 +497,7 @@ class BacktestEngine:
         )
         self.current_position = position
         
-        # Trade 생성
+        # Trade 생성 (레버리지 정보 포함)
         trade = Trade(
             trade_id=self.trade_id_counter,
             direction=direction,
@@ -490,7 +507,8 @@ class BacktestEngine:
             initial_risk=risk,
             stop_loss=stop_loss,
             take_profit_1=tp1_price,
-            balance_at_entry=self.risk_manager.current_balance  # 진입 시점의 잔고 저장
+            balance_at_entry=self.risk_manager.current_balance,  # 진입 시점의 잔고 저장
+            leverage=leverage  # 사용한 레버리지 저장
         )
         self.trades.append(trade)
         

@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Plus, PlayCircle, Eye, RefreshCw, Trash2, XCircle } from "lucide-react"
-import { runApi, datasetApi, strategyApi } from "@/lib/api-client"
-import type { Run, Dataset, Strategy } from "@/lib/types"
+import { runApi, datasetApi, strategyApi, presetApi } from "@/lib/api-client"
+import type { Run, Dataset, Strategy, Preset } from "@/lib/types"
 import { formatTimestamp, getStatusColor } from "@/lib/utils"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +28,7 @@ export default function RunsPage() {
   const [runs, setRuns] = useState<Run[]>([])
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [strategies, setStrategies] = useState<Strategy[]>([])
+  const [presets, setPresets] = useState<Preset[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -35,6 +36,7 @@ export default function RunsPage() {
   // 폼 상태
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null)
   const [selectedStrategyId, setSelectedStrategyId] = useState<number | null>(null)
+  const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null)
 
   useEffect(() => {
     loadData()
@@ -43,14 +45,22 @@ export default function RunsPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const [runsData, datasetsData, strategiesData] = await Promise.all([
+      const [runsData, datasetsData, strategiesData, presetsData] = await Promise.all([
         runApi.list(),
         datasetApi.list(),
         strategyApi.list(),
+        presetApi.list(),
       ])
       setRuns(runsData)
       setDatasets(datasetsData)
       setStrategies(strategiesData)
+      setPresets(presetsData)
+      
+      // 기본 프리셋을 자동 선택
+      const defaultPreset = presetsData.find(p => p.is_default)
+      if (defaultPreset) {
+        setSelectedPresetId(defaultPreset.preset_id)
+      }
     } catch (error: any) {
       console.error('Failed to load data:', error)
       toast.error('데이터를 불러오는데 실패했습니다', {
@@ -70,6 +80,7 @@ export default function RunsPage() {
       const createdRun = await runApi.create({
         dataset_id: selectedDatasetId,
         strategy_id: selectedStrategyId,
+        preset_id: selectedPresetId || undefined,
       })
       
       toast.success('Run이 생성되었습니다!', {
@@ -79,6 +90,11 @@ export default function RunsPage() {
       setShowCreateForm(false)
       setSelectedDatasetId(null)
       setSelectedStrategyId(null)
+      // 기본 프리셋 다시 선택
+      const defaultPreset = presets.find(p => p.is_default)
+      if (defaultPreset) {
+        setSelectedPresetId(defaultPreset.preset_id)
+      }
       await loadData()
     } catch (error: any) {
       console.error('Failed to create run:', error)
@@ -258,6 +274,33 @@ export default function RunsPage() {
                 </select>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="preset">설정 프리셋</Label>
+                <select
+                  id="preset"
+                  value={selectedPresetId || ""}
+                  onChange={(e) => setSelectedPresetId(Number(e.target.value))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  required
+                >
+                  <option value="">프리셋 선택</option>
+                  {presets.map((preset) => (
+                    <option key={preset.preset_id} value={preset.preset_id}>
+                      {preset.name} {preset.is_default && '(기본)'} - {(preset.risk_percent * 100).toFixed(1)}% 리스크
+                    </option>
+                  ))}
+                </select>
+                {selectedPresetId && presets.find(p => p.preset_id === selectedPresetId) && (
+                  <div className="text-xs text-muted-foreground space-y-1 mt-2 p-3 bg-muted rounded-md">
+                    <p><strong>선택된 프리셋 설정:</strong></p>
+                    <p>• 초기 자산: {presets.find(p => p.preset_id === selectedPresetId)!.initial_balance.toLocaleString()} USDT</p>
+                    <p>• 리스크 비율: {(presets.find(p => p.preset_id === selectedPresetId)!.risk_percent * 100).toFixed(2)}%</p>
+                    <p>• 리스크 보상 비율: {presets.find(p => p.preset_id === selectedPresetId)!.risk_reward_ratio}</p>
+                    <p>• 재평가 주기: {presets.find(p => p.preset_id === selectedPresetId)!.rebalance_interval} 거래</p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end space-x-2">
                 <Button
                   type="button"
@@ -269,7 +312,7 @@ export default function RunsPage() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={creating || !selectedDatasetId || !selectedStrategyId}
+                  disabled={creating || !selectedDatasetId || !selectedStrategyId || !selectedPresetId}
                 >
                   {creating ? "생성 중..." : "실행"}
                 </Button>

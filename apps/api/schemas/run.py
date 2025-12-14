@@ -23,14 +23,14 @@ class RunCreate(BaseModel):
             "example": {
                 "dataset_id": 1,
                 "strategy_id": 1,
-                "initial_balance": 10000.0
+                "preset_id": 1
             }
         }
     )
     
     dataset_id: int = Field(..., description="데이터셋 ID")
     strategy_id: int = Field(..., description="전략 ID")
-    initial_balance: float = Field(default=10000.0, description="초기 자산 (기본값: 10000)")
+    preset_id: Optional[int] = Field(default=None, description="프리셋 ID (없으면 기본 프리셋 사용)")
 
 
 class RunResponse(BaseModel):
@@ -43,6 +43,7 @@ class RunResponse(BaseModel):
     status: RunStatus
     engine_version: str
     initial_balance: float
+    preset_id: Optional[int] = Field(default=None, description="프리셋 ID")
     started_at: Optional[int]
     completed_at: Optional[int]
     run_artifacts: Optional[Dict[str, Any]]
