@@ -129,13 +129,40 @@ pnpm dev
 - ✅ API 통합 테스트 작성 및 검증
 - 📄 [Phase 4 구현 결과보고서](docs/step1/Phase4_Implementation_Report.md)
 
-### Phase 5: Next.js 프론트엔드 ⭐⭐
-- 전략 빌더 UI
-- 결과 시각화
+### ✅ Phase 5: Next.js 프론트엔드 (완료)
+- ✅ 전략 빌더 UI
+- ✅ 결과 시각화
+- ✅ 차트 통합
+- ✅ 커스텀 인디케이터 시스템
 
-### Phase 6: 통합 및 배포 ⭐⭐
-- E2E 테스트
-- 성능 최적화
+### Phase 6: 통합 및 배포 (진행 중)
+- 🔄 서버 배포
+- ⭐ E2E 테스트
+- ⭐ 성능 최적화
+
+## 서버 배포
+
+AlgoForge를 프로덕션 서버에 배포하는 방법:
+
+### 빠른 시작
+```bash
+# 상세 가이드 참조
+cat docs/SERVER_DEPLOYMENT_GUIDE.md
+
+# 또는 빠른 체크리스트
+cat deploy/QUICK_START.md
+```
+
+### 배포 문서
+- 📚 [서버 배포 가이드](docs/SERVER_DEPLOYMENT_GUIDE.md) - 전체 배포 프로세스 상세 가이드
+- 🚀 [빠른 시작 가이드](deploy/QUICK_START.md) - 숙련자용 빠른 배포 체크리스트
+- 📁 [배포 파일](deploy/) - systemd 서비스, Nginx 설정, 백업 스크립트 등
+
+### 배포 환경
+- **도메인**: algoforge.wonbbo.kro.kr
+- **Nginx 포트**: 8080 (80포트 사용 중이므로 대체)
+- **OS**: Ubuntu 20.04/22.04
+- **아키텍처**: Nginx → Next.js (3000) + FastAPI (8000)
 
 ## 문서
 
