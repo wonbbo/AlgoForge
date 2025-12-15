@@ -97,6 +97,71 @@ export function TradeChart({ chartData }: TradeChartProps) {
       const container = chartContainersRef.current.get(chartName)
       if (!container) return
 
+      // KST 시간 포맷터 함수 정의 (크로스헤어용)
+      const kstTimeFormatter = (time: Time): string => {
+        try {
+          // Unix timestamp 추출
+          const timestamp = typeof time === 'number' ? time : (time as any).timestamp || time
+          
+          // Unix timestamp를 Date 객체로 변환 (초 단위로 가정)
+          const date = new Date(timestamp < 10000000000 ? timestamp * 1000 : timestamp)
+          
+          // Intl.DateTimeFormat을 사용하여 KST로 포맷팅
+          const formatter = new Intl.DateTimeFormat('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false, // 24시간 형식
+          })
+          
+          // YYYY-MM-DD HH:mm 형식으로 변환
+          const parts = formatter.formatToParts(date)
+          const year = parts.find(p => p.type === 'year')?.value || ''
+          const month = parts.find(p => p.type === 'month')?.value || ''
+          const day = parts.find(p => p.type === 'day')?.value || ''
+          const hour = parts.find(p => p.type === 'hour')?.value || ''
+          const minute = parts.find(p => p.type === 'minute')?.value || ''
+          
+          return `${year}-${month}-${day} ${hour}:${minute}`
+        } catch (error) {
+          // 에러 발생 시 기본 포맷 반환
+          return String(time)
+        }
+      }
+
+      // 틱 레이블용 포맷터 함수 (tickMarkFormatter는 time, tickMarkType, locale 파라미터를 받음)
+      // 날짜 없이 시간과 분만 표시
+      const kstTickMarkFormatter = (time: Time, tickMarkType?: any, locale?: string): string => {
+        try {
+          // Unix timestamp 추출
+          const timestamp = typeof time === 'number' ? time : (time as any).timestamp || time
+          
+          // Unix timestamp를 Date 객체로 변환 (초 단위로 가정)
+          const date = new Date(timestamp < 10000000000 ? timestamp * 1000 : timestamp)
+          
+          // Intl.DateTimeFormat을 사용하여 KST로 포맷팅 (시간과 분만)
+          const formatter = new Intl.DateTimeFormat('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false, // 24시간 형식
+          })
+          
+          // HH:mm 형식으로 변환
+          const parts = formatter.formatToParts(date)
+          const hour = parts.find(p => p.type === 'hour')?.value || ''
+          const minute = parts.find(p => p.type === 'minute')?.value || ''
+          
+          return `${hour}:${minute}`
+        } catch (error) {
+          // 에러 발생 시 기본 포맷 반환
+          return String(time)
+        }
+      }
+
       const chart = createChart(container, {
         width: container.clientWidth,
         height: chartName === 'main' ? 400 : 150,
@@ -111,9 +176,14 @@ export function TradeChart({ chartData }: TradeChartProps) {
         timeScale: {
           timeVisible: true,
           secondsVisible: false,
+          // 틱 레이블도 KST로 표시하기 위한 설정
+          tickMarkFormatter: kstTickMarkFormatter,
         },
         rightPriceScale: {
           borderColor: '#2B2B43',
+        },
+        localization: {
+          timeFormatter: kstTimeFormatter,
         },
       })
 
