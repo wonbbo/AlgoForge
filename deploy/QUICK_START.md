@@ -49,8 +49,8 @@ git clone <repo-url> .
 cd /var/www/algoforge
 
 # Python 환경
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
@@ -97,7 +97,7 @@ sudo systemctl restart nginx
 ### 7️⃣ 방화벽
 ```bash
 sudo ufw allow 22/tcp
-sudo ufw allow 8080/tcp
+sudo ufw allow 80/tcp
 sudo ufw enable
 sudo ufw status
 ```
@@ -115,13 +115,13 @@ sudo chmod 664 /var/www/algoforge/db/algoforge.db
 sudo systemctl status algoforge-api algoforge-web nginx
 
 # 포트 확인
-sudo netstat -tulpn | grep -E ':(3000|8000|8080)'
+sudo netstat -tulpn | grep -E ':(5001|6000|80)'
 
 # 로컬 테스트
-curl http://localhost:8080/api/health
+curl http://localhost:6000/api/health
 
 # 웹 브라우저
-# http://algoforge.wonbbo.kro.kr:8080
+# http://algoforge.wonbbo.kro.kr
 ```
 
 ### 🔟 백업 설정 (선택)
@@ -140,7 +140,7 @@ sudo crontab -e
 - [ ] Backend API 서비스 실행 중
 - [ ] Frontend 서비스 실행 중  
 - [ ] Nginx 서비스 실행 중
-- [ ] 방화벽 8080 포트 오픈
+- [ ] 방화벽 80 포트 오픈
 - [ ] 웹 브라우저 접속 성공
 - [ ] API Health Check 응답 정상
 - [ ] 로그 에러 없음
@@ -173,9 +173,9 @@ sudo journalctl -u algoforge-api -n 50
 
 **포트 충돌**
 ```bash
-sudo lsof -i :3000
-sudo lsof -i :8000
-sudo lsof -i :8080
+sudo lsof -i :5001
+sudo lsof -i :6000
+sudo lsof -i :80
 ```
 
 **권한 문제**

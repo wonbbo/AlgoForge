@@ -148,7 +148,7 @@ pnpm dev
 
 ### 2. 브라우저 접근
 ```
-http://localhost:3000/strategies/builder
+http://localhost:5001/strategies/builder
 ```
 
 ### 3. 전략 작성

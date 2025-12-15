@@ -133,7 +133,7 @@ apps/web/lib/
 ### 1. 백엔드 서버 실행
 ```bash
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --reload
 ```
 
 ### 2. 프론트엔드 서버 실행
@@ -143,7 +143,7 @@ pnpm dev
 ```
 
 ### 3. 브라우저 접속
-- Strategy Builder: http://localhost:3000/strategies/builder
+- Strategy Builder: http://localhost:5001/strategies/builder
 
 ---
 

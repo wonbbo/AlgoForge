@@ -68,7 +68,10 @@ def calculate_strategy_hash(definition: Dict[str, Any]) -> str:
     return hash_obj.hexdigest()
 
 
-def load_bars_from_csv(file_path: str) -> Tuple[List[Bar], pd.DataFrame, Dict[str, Any]]:
+def load_bars_from_csv(
+    file_path: str,
+    include_df: bool = False
+) -> Tuple[List[Bar], pd.DataFrame | Dict[str, Any]]:
     """
     CSV 파일에서 봉 데이터 로드
     
@@ -86,8 +89,8 @@ def load_bars_from_csv(file_path: str) -> Tuple[List[Bar], pd.DataFrame, Dict[st
         file_path: CSV 파일 경로
         
     Returns:
-        Tuple[List[Bar], pd.DataFrame, Dict[str, Any]]: 
-            (봉 데이터 리스트, OHLCV DataFrame, 메타데이터)
+        include_df=True  -> (봉 데이터 리스트, DataFrame, 메타데이터)
+        include_df=False -> (봉 데이터 리스트, 메타데이터)
         
     Raises:
         FileNotFoundError: 파일이 존재하지 않는 경우
@@ -156,7 +159,9 @@ def load_bars_from_csv(file_path: str) -> Tuple[List[Bar], pd.DataFrame, Dict[st
         'end_timestamp': bars[-1].timestamp,
     }
     
-    return bars, df, metadata
+    if include_df:
+        return bars, df, metadata
+    return bars, metadata
 
 
 def validate_bars(bars: List[Bar]) -> Tuple[bool, List[str]]:

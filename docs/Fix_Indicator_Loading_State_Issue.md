@@ -455,7 +455,7 @@ disabled={indicators.length === 0 || isLoadingIndicators}
 
 1. **브라우저 새로고침**
    ```
-   http://localhost:3000/strategies/builder
+   http://localhost:5001/strategies/builder
    ```
 
 2. **Step 1**: 지표 추가

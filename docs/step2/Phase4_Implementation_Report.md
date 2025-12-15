@@ -331,12 +331,12 @@ setTimeout(() => {
 
 #### 1.1 서버 실행
 ```bash
-python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --reload
 ```
 
 #### 1.2 헬스 체크
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:6000/health
 ```
 
 **결과**:
@@ -363,7 +363,7 @@ pnpm dev
 
 #### 2.2 접속 확인
 ```bash
-curl http://localhost:3000
+curl http://localhost:5001
 ```
 
 **결과**: HTTP 200 OK
@@ -495,11 +495,11 @@ curl http://localhost:3000
 - **Framework**: FastAPI
 - **Database**: SQLite
 - **API**: RESTful API
-- **CORS**: 활성화 (localhost:3000)
+- **CORS**: 활성화 (localhost:5001)
 
 ### 통합
 - **API Client**: `apps/web/lib/api-client.ts`
-- **Base URL**: `http://localhost:8000`
+- **Base URL**: `http://localhost:6000`
 - **Content-Type**: `application/json`
 
 ---
@@ -574,7 +574,7 @@ curl http://localhost:3000
 #### 백엔드 서버
 ```bash
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --reload
 ```
 
 #### 프론트엔드 서버
@@ -586,7 +586,7 @@ pnpm dev
 ### 2. 전략 생성 플로우
 
 1. **전략 빌더 접속**
-   - URL: `http://localhost:3000/strategies/builder`
+   - URL: `http://localhost:5001/strategies/builder`
 
 2. **전략 정보 입력**
    - 전략 이름 (필수)
@@ -614,7 +614,7 @@ pnpm dev
 ### 3. 전략 관리
 
 #### 전략 목록 보기
-- URL: `http://localhost:3000/strategies`
+- URL: `http://localhost:5001/strategies`
 - 저장된 모든 전략 확인
 
 #### 전략 상세 보기

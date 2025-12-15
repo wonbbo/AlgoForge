@@ -129,12 +129,12 @@ apps/web/
 ### 1. 백엔드 서버 실행
 ```bash
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --reload
 ```
 
 **헬스 체크**:
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:6000/health
 ```
 
 **결과**:
@@ -154,9 +154,9 @@ pnpm dev
 ```
 
 **접속**:
-- 메인: http://localhost:3000
-- 전략 빌더: http://localhost:3000/strategies/builder
-- 전략 목록: http://localhost:3000/strategies
+- 메인: http://localhost:5001
+- 전략 빌더: http://localhost:5001/strategies/builder
+- 전략 목록: http://localhost:5001/strategies
 
 ---
 
@@ -330,7 +330,7 @@ const url = URL.createObjectURL(blob);
 
 ### 통합
 - **API Client**: Fetch API
-- **Base URL**: http://localhost:8000
+- **Base URL**: http://localhost:6000
 - **Content-Type**: application/json
 
 ---

@@ -24,7 +24,7 @@ pnpm install
 pnpm dev
 ```
 
-브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어 확인하세요.
+브라우저에서 [http://localhost:5001](http://localhost:5001)을 열어 확인하세요.
 
 ### 3. 백엔드 서버 실행 (필수)
 
@@ -33,7 +33,7 @@ pnpm dev
 ```bash
 # 프로젝트 루트에서
 cd apps/api
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 6000
 ```
 
 ## 프로젝트 구조
@@ -82,7 +82,7 @@ apps/web/
 ## API 통신
 
 FastAPI 백엔드와 통신합니다:
-- **개발**: `http://localhost:8000`
+- **개발**: `http://localhost:6000`
 - **프록시**: Next.js의 rewrites 기능 사용
 
 ### API 클라이언트 사용 예시
@@ -151,7 +151,7 @@ pnpm start
 `.env.local` 파일 생성:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:6000
 ```
 
 ## 주의사항

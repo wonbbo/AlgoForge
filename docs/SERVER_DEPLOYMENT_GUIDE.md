@@ -2,7 +2,7 @@
 
 > **배포 환경**: Ubuntu 20.04/22.04  
 > **도메인**: algoforge.wonbbo.kro.kr  
-> **Nginx 포트**: 8080 (80포트 사용 중이므로 대체 포트 사용)  
+> **Nginx 포트**: 80
 > **프로젝트 경로**: /var/www/algoforge
 
 ---
@@ -29,7 +29,7 @@
 #### ✅ 필수 체크리스트
 - [ ] 서버 SSH 접근 정보 확인
 - [ ] 도메인 DNS 설정 완료 (algoforge.wonbbo.kro.kr → 서버 IP)
-- [ ] 서버 사용 가능한 포트 확인 (8080, 3000, 8000)
+- [ ] 서버 사용 가능한 포트 확인 (80, 5001, 6000)
 - [ ] Git 저장소 준비 (또는 파일 직접 전송)
 
 #### 환경 변수 파일 준비
@@ -39,10 +39,10 @@
 ```bash
 # Backend API 설정
 API_HOST=0.0.0.0
-API_PORT=8000
+API_PORT=6000
 
 # Frontend 설정
-NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr:8080/api
+NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr/api
 
 # 데이터베이스 경로
 DATABASE_PATH=./db/algoforge.db
@@ -152,10 +152,10 @@ nano .env
 ```bash
 # Backend API 설정
 API_HOST=0.0.0.0
-API_PORT=8000
+API_PORT=6000
 
 # Frontend 설정
-NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr:8080/api
+NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr/api
 
 # 데이터베이스 경로
 DATABASE_PATH=./db/algoforge.db
@@ -204,7 +204,7 @@ source venv/bin/activate
 python apps/api/main.py
 
 # 별도 터미널에서 확인
-curl http://localhost:8000/health
+curl http://localhost:6000/health
 ```
 
 성공 응답 확인 후 `Ctrl + C`로 종료
@@ -230,7 +230,7 @@ Group=www-data
 WorkingDirectory=/var/www/algoforge
 Environment="PATH=/var/www/algoforge/venv/bin"
 Environment="PYTHONPATH=/var/www/algoforge"
-ExecStart=/var/www/algoforge/venv/bin/uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --workers 2
+ExecStart=/var/www/algoforge/venv/bin/uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --workers 2
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -291,7 +291,7 @@ pnpm start
 별도 터미널에서 확인:
 
 ```bash
-curl http://localhost:3000
+curl http://localhost:5001
 ```
 
 성공 응답 확인 후 `Ctrl + C`로 종료
@@ -316,8 +316,8 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/algoforge/apps/web
 Environment="NODE_ENV=production"
-Environment="PORT=3000"
-Environment="NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr:8080/api"
+Environment="PORT=5001"
+Environment="NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr/api"
 ExecStart=/usr/bin/pnpm start
 Restart=always
 RestartSec=10
@@ -362,19 +362,19 @@ sudo nano /etc/nginx/sites-available/algoforge
 
 ```nginx
 # AlgoForge Nginx 설정
-# 포트: 8080 (80포트 사용 중이므로 대체 포트 사용)
+# 포트: 80
 # 도메인: algoforge.wonbbo.kro.kr
 
 upstream frontend {
-    server localhost:3000;
+    server localhost:5001;
 }
 
 upstream backend {
-    server localhost:8000;
+    server localhost:6000;
 }
 
 server {
-    listen 8080;
+    listen 80;
     server_name algoforge.wonbbo.kro.kr;
 
     # 클라이언트 최대 업로드 크기 (데이터셋 파일 업로드용)
@@ -476,7 +476,7 @@ sudo ufw default allow outgoing
 
 # 필요한 포트 열기
 sudo ufw allow 22/tcp      # SSH
-sudo ufw allow 8080/tcp    # Nginx (AlgoForge)
+sudo ufw allow 80/tcp      # Nginx (AlgoForge)
 
 # 방화벽 활성화
 sudo ufw enable
@@ -493,7 +493,7 @@ Status: active
 To                         Action      From
 --                         ------      ----
 22/tcp                     ALLOW       Anywhere
-8080/tcp                   ALLOW       Anywhere
+80/tcp                     ALLOW       Anywhere
 ```
 
 ### 7.2 클라우드 방화벽 설정 (선택사항)
@@ -502,7 +502,7 @@ AWS, GCP, Azure 등 클라우드 환경에서는 별도로 보안 그룹/방화�
 
 - **인바운드 규칙 추가**:
   - 포트 22 (SSH)
-  - 포트 8080 (HTTP)
+  - 포트 80 (HTTP)
 
 ---
 
@@ -523,38 +523,38 @@ sudo systemctl status nginx
 
 ```bash
 # 포트 확인
-sudo netstat -tulpn | grep -E ':(3000|8000|8080)'
+sudo netstat -tulpn | grep -E ':(5001|6000|80)'
 ```
 
 **예상 출력:**
 
 ```
-tcp  0  0 0.0.0.0:3000   0.0.0.0:*   LISTEN   1234/node
-tcp  0  0 0.0.0.0:8000   0.0.0.0:*   LISTEN   5678/python
-tcp  0  0 0.0.0.0:8080   0.0.0.0:*   LISTEN   9012/nginx
+tcp  0  0 0.0.0.0:5001   0.0.0.0:*   LISTEN   1234/node
+tcp  0  0 0.0.0.0:6000   0.0.0.0:*   LISTEN   5678/python
+tcp  0  0 0.0.0.0:80     0.0.0.0:*   LISTEN   9012/nginx
 ```
 
 ### 8.3 로컬 테스트
 
 ```bash
 # Backend API 헬스 체크
-curl http://localhost:8000/health
+curl http://localhost:6000/health
 
 # Frontend 확인
-curl http://localhost:3000
+curl http://localhost:5001
 
 # Nginx를 통한 접근 확인
-curl http://localhost:8080/health
-curl http://localhost:8080/api/health
+curl http://localhost/health
+curl http://localhost/api/health
 ```
 
 ### 8.4 외부 접근 테스트
 
 **웹 브라우저에서 접속:**
 
-1. **Frontend**: http://algoforge.wonbbo.kro.kr:8080
-2. **API Docs**: http://algoforge.wonbbo.kro.kr:8080/docs
-3. **Health Check**: http://algoforge.wonbbo.kro.kr:8080/api/health
+1. **Frontend**: http://algoforge.wonbbo.kro.kr
+2. **API Docs**: http://algoforge.wonbbo.kro.kr/docs
+3. **Health Check**: http://algoforge.wonbbo.kro.kr/api/health
 
 **예상 결과:**
 
@@ -773,9 +773,9 @@ python apps/api/main.py
    sudo chmod 664 /var/www/algoforge/db/algoforge.db
    ```
 
-3. **포트 충돌 (8000 포트)**
+3. **포트 충돌 (6000 포트)**
    ```bash
-   sudo lsof -i :8000
+   sudo lsof -i :6000
    # 다른 프로세스가 사용 중이면 종료 또는 포트 변경
    ```
 
@@ -802,9 +802,9 @@ pnpm start
    pnpm build
    ```
 
-2. **포트 충돌 (3000 포트)**
+2. **포트 충돌 (5001 포트)**
    ```bash
-   sudo lsof -i :3000
+   sudo lsof -i :5001
    ```
 
 3. **환경 변수 누락**
@@ -881,15 +881,15 @@ dig algoforge.wonbbo.kro.kr
 # UFW 상태 확인
 sudo ufw status verbose
 
-# 8080 포트가 열려있는지 확인
-sudo ufw allow 8080/tcp
+# 80 포트가 열려있는지 확인
+sudo ufw allow 80/tcp
 ```
 
 #### Nginx 리스닝 확인
 
 ```bash
-# Nginx가 8080 포트에서 리스닝하는지 확인
-sudo netstat -tulpn | grep :8080
+# Nginx가 80 포트에서 리스닝하는지 확인
+sudo netstat -tulpn | grep :80
 
 # Nginx 설정 테스트
 sudo nginx -t
@@ -916,8 +916,8 @@ nano apps/api/main.py
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://algoforge.wonbbo.kro.kr:8080",
-        "http://localhost:3000",
+        "http://algoforge.wonbbo.kro.kr",
+        "http://localhost:5001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -1015,7 +1015,7 @@ sudo systemctl restart algoforge-api
 - [ ] Backend API 서비스 `active (running)` 상태
 - [ ] Frontend 서비스 `active (running)` 상태
 - [ ] Nginx 서비스 `active (running)` 상태
-- [ ] 방화벽 8080 포트 오픈 완료
+- [ ] 방화벽 80 포트 오픈 완료
 - [ ] 도메인 DNS 설정 완료 (algoforge.wonbbo.kro.kr)
 - [ ] 웹 브라우저로 접속 테스트 통과
 - [ ] API Health Check 응답 정상
@@ -1046,9 +1046,9 @@ Nginx 설정: /etc/nginx/sites-available/algoforge
 ### 접속 URL
 
 ```
-Frontend: http://algoforge.wonbbo.kro.kr:8080
-API Docs: http://algoforge.wonbbo.kro.kr:8080/docs
-Health Check: http://algoforge.wonbbo.kro.kr:8080/api/health
+Frontend: http://algoforge.wonbbo.kro.kr
+API Docs: http://algoforge.wonbbo.kro.kr/docs
+Health Check: http://algoforge.wonbbo.kro.kr/api/health
 ```
 
 ### 유용한 명령어
@@ -1063,7 +1063,7 @@ sudo journalctl -u algoforge-web -f
 sudo tail -f /var/log/nginx/algoforge_error.log
 
 # 포트 사용 확인
-sudo netstat -tulpn | grep -E ':(3000|8000|8080)'
+sudo netstat -tulpn | grep -E ':(5001|6000|80)'
 
 # 디스크 사용량 확인
 df -h
@@ -1075,7 +1075,7 @@ du -sh /var/backups/algoforge
 
 ## 📝 변경 이력
 
-- **2024-12-15**: 초기 배포 가이드 작성 (포트 8080 사용, algoforge.wonbbo.kro.kr 도메인)
+- **2024-12-15**: 초기 배포 가이드 작성 (포트 80 사용, algoforge.wonbbo.kro.kr 도메인)
 
 ---
 

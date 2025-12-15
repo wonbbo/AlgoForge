@@ -14,7 +14,7 @@ nano .env  # 필요에 따라 수정
 ```
 
 ### 2. `nginx-algoforge.conf`
-Nginx 리버스 프록시 설정 파일 (포트 8080 사용)
+Nginx 리버스 프록시 설정 파일 (포트 80 사용)
 
 **사용 방법:**
 ```bash
@@ -81,9 +81,9 @@ sudo ./deploy/deploy.sh
 
 ### 도메인 및 포트
 - **도메인**: algoforge.wonbbo.kro.kr
-- **Nginx 포트**: 8080 (80포트 사용 중이므로 대체 포트)
-- **Backend 포트**: 8000 (내부)
-- **Frontend 포트**: 3000 (내부)
+- **Nginx 포트**: 80
+- **Backend 포트**: 6000 (내부)
+- **Frontend 포트**: 5001 (내부)
 
 ### 경로
 - **프로젝트 루트**: /var/www/algoforge

@@ -1380,7 +1380,7 @@ app = FastAPI(title="AlgoForge API", version="1.0.0")
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:5001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -15,19 +15,19 @@ pnpm install
 pnpm dev
 ```
 
-개발 서버가 `http://localhost:3000`에서 실행됩니다.
+개발 서버가 `http://localhost:5001`에서 실행됩니다.
 
 ---
 
 ## 📍 전략 빌더 접근
 
 ### 방법 1: UI에서 접근
-1. 브라우저에서 `http://localhost:3000` 열기
+1. 브라우저에서 `http://localhost:5001` 열기
 2. 좌측 네비게이션에서 "전략" 클릭
 3. "전략 빌더 (UI)" 버튼 클릭
 
 ### 방법 2: 직접 URL
-브라우저에서 `http://localhost:3000/strategies/builder` 열기
+브라우저에서 `http://localhost:5001/strategies/builder` 열기
 
 ---
 
@@ -70,7 +70,7 @@ AlgoForge/
 
 ### 1. 페이지 접근 확인
 ```
-✅ http://localhost:3000/strategies/builder 접근 가능
+✅ http://localhost:5001/strategies/builder 접근 가능
 ✅ "Phase 1 구현 완료" 메시지 표시
 ```
 
@@ -229,6 +229,6 @@ Phase 2에서는 실제 UI 컴포넌트를 구현합니다:
 cd apps/web
 pnpm install
 pnpm dev
-# → http://localhost:3000/strategies/builder 접근
+# → http://localhost:5001/strategies/builder 접근
 ```
 

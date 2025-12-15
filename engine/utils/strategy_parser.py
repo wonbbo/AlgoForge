@@ -20,7 +20,7 @@ class StrategyParser:
     Strategy JSON을 파싱하여 봉마다 진입 신호를 생성합니다.
     """
     
-    def __init__(self, strategy_definition: Dict[str, Any], bars: List[Bar], df: pd.DataFrame):
+    def __init__(self, strategy_definition: Dict[str, Any], bars: List[Bar], df: Optional[pd.DataFrame] = None):
         """
         Args:
             strategy_definition: 전략 정의 JSON
@@ -29,14 +29,26 @@ class StrategyParser:
         """
         self.definition = strategy_definition
         self.bars = bars
-        self.df = df
+        # df가 없으면 bars로부터 DataFrame 생성 (테스트 호환성)
+        if df is None:
+            self.df = pd.DataFrame({
+                'timestamp': [b.timestamp for b in bars],
+                'open': [b.open for b in bars],
+                'high': [b.high for b in bars],
+                'low': [b.low for b in bars],
+                'close': [b.close for b in bars],
+                'volume': [b.volume for b in bars],
+                'direction': [b.direction for b in bars],
+            })
+        else:
+            self.df = df
         
         # timestamp -> index 매핑 생성 (O(1) 검색을 위해)
         # 매 봉마다 O(n) 순차 검색을 하면 전체 O(n²)이 되므로 미리 딕셔너리로 생성
         self.timestamp_to_index = {bar.timestamp: i for i, bar in enumerate(bars)}
         
         # Indicator Calculator 초기화 (DataFrame 전달)
-        self.indicator_calc = IndicatorCalculator(df)
+        self.indicator_calc = IndicatorCalculator(self.df)
         
         # 커스텀 지표 동적 로드
         self._load_custom_indicators()

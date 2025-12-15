@@ -193,7 +193,7 @@ TypeError: Cannot read properties of undefined (reading 'length')
 ### 1. 브라우저 새로고침
 ```
 Ctrl + Shift + R
-http://localhost:3000/strategies/builder
+http://localhost:5001/strategies/builder
 ```
 
 ### 2. Console 확인

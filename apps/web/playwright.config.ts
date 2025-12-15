@@ -29,7 +29,7 @@ export default defineConfig({
   // 모든 테스트에 공통 적용
   use: {
     // 베이스 URL
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:5001',
     
     // 스크린샷 (실패 시에만)
     screenshot: 'only-on-failure',
@@ -58,7 +58,7 @@ export default defineConfig({
   // 개발 서버 (테스트 전 자동 실행)
   webServer: {
     command: 'pnpm dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:5001',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

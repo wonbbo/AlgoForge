@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface RunProgress {
   run_id: number;
@@ -25,26 +25,9 @@ export function RunProgressMonitor({ runId, onComplete }: RunProgressMonitorProp
   const [progress, setProgress] = useState<RunProgress | null>(null);
   const [isPolling, setIsPolling] = useState(true);
 
-  useEffect(() => {
-    // 초기 데이터 로드
-    fetchProgress();
-
-    // 폴링이 활성화되어 있고 상태가 RUNNING이 아니면 폴링 중단
-    if (!isPolling) {
-      return;
-    }
-
-    // 1초마다 진행 상황 폴링
-    const interval = setInterval(async () => {
-      await fetchProgress();
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [runId, isPolling]);
-
-  const fetchProgress = async () => {
+  const fetchProgress = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/runs/${runId}`);
+      const response = await fetch(`http://localhost:6000/api/runs/${runId}`);
       if (!response.ok) {
         throw new Error("진행률 조회 실패");
       }
@@ -65,7 +48,24 @@ export function RunProgressMonitor({ runId, onComplete }: RunProgressMonitorProp
       console.error("진행률 조회 실패:", error);
       // 에러가 발생해도 계속 폴링 (일시적인 네트워크 문제일 수 있음)
     }
-  };
+  }, [runId, onComplete]);
+
+  useEffect(() => {
+    // 초기 데이터 로드
+    fetchProgress();
+
+    // 폴링이 활성화되어 있고 상태가 RUNNING이 아니면 폴링 중단
+    if (!isPolling) {
+      return;
+    }
+
+    // 1초마다 진행 상황 폴링
+    const interval = setInterval(async () => {
+      await fetchProgress();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [runId, isPolling, fetchProgress]);
 
   if (!progress) {
     return (

@@ -196,7 +196,7 @@ const valueType = typeof defaultValue; // 'number' | 'string' | ...
 **해결**:
 ```bash
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --reload --port 8000
+python -m uvicorn apps.api.main:app --reload --port 6000
 ```
 
 ### 커스텀 지표가 표시되지 않음

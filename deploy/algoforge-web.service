@@ -17,8 +17,8 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/algoforge/apps/web
 Environment="NODE_ENV=production"
-Environment="PORT=3000"
-Environment="NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr:8080/api"
+Environment="PORT=5001"
+Environment="NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr/api"
 ExecStart=/usr/bin/pnpm start
 Restart=always
 RestartSec=10

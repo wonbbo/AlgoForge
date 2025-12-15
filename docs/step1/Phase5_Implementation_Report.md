@@ -79,7 +79,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
+        destination: 'http://localhost:6000/api/:path*',
       },
     ]
   },
@@ -868,7 +868,7 @@ apps/web/
 ### 7.1 이슈 1: CORS 문제
 
 **문제**:
-- 프론트엔드(3000) → 백엔드(8000) 직접 호출 시 CORS 에러
+- 프론트엔드(5001) → 백엔드(6000) 직접 호출 시 CORS 에러
 
 **해결**:
 ```javascript
@@ -877,7 +877,7 @@ async rewrites() {
   return [
     {
       source: '/api/:path*',
-      destination: 'http://localhost:8000/api/:path*',
+      destination: 'http://localhost:6000/api/:path*',
     },
   ]
 }
@@ -1077,14 +1077,14 @@ pnpm install
 pnpm dev
 ```
 
-브라우저에서 http://localhost:3000 열기
+브라우저에서 http://localhost:5001 열기
 
 ### 11.2 백엔드 실행 (필수)
 
 ```bash
 # 프로젝트 루트에서
 cd apps/api
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 6000
 ```
 
 ### 11.3 워크플로우

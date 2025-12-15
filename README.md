@@ -76,13 +76,13 @@ start_api_server.bat
 ./start_api_server.sh
 
 # 방법 2: 직접 실행 (프로젝트 루트에서)
-python -m uvicorn apps.api.main:app --reload --port 8000
+python -m uvicorn apps.api.main:app --reload --port 6000
 ```
 
 **API 문서**:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-- Health Check: http://localhost:8000/health
+- Swagger UI: http://localhost:6000/docs
+- ReDoc: http://localhost:6000/redoc
+- Health Check: http://localhost:6000/health
 
 ### Frontend 개발 서버 (Phase 5 이후)
 
@@ -160,9 +160,9 @@ cat deploy/QUICK_START.md
 
 ### 배포 환경
 - **도메인**: algoforge.wonbbo.kro.kr
-- **Nginx 포트**: 8080 (80포트 사용 중이므로 대체)
+- **Nginx 포트**: 80
 - **OS**: Ubuntu 20.04/22.04
-- **아키텍처**: Nginx → Next.js (3000) + FastAPI (8000)
+- **아키텍처**: Nginx → Next.js (5001) + FastAPI (6000)
 
 ## 문서
 

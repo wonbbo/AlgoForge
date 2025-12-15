@@ -6,7 +6,7 @@
  * 지표 정보를 확인하고, 커스텀 지표인 경우 수정/삭제할 수 있습니다.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -47,11 +47,7 @@ export default function IndicatorDetailPage() {
   const [isValidating, setIsValidating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   
-  useEffect(() => {
-    fetchIndicator()
-  }, [indicatorType])
-  
-  const fetchIndicator = async () => {
+  const fetchIndicator = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     
@@ -76,7 +72,12 @@ export default function IndicatorDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [indicatorType])
+  
+  useEffect(() => {
+    // 지표 타입이 변경될 때마다 재조회
+    fetchIndicator()
+  }, [fetchIndicator])
   
   const getCategoryIcon = (category: string) => {
     switch(category) {

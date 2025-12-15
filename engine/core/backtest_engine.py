@@ -465,7 +465,8 @@ class BacktestEngine:
         # 포지션 크기 및 레버리지 계산
         position_size, risk, leverage = self.risk_manager.calculate_position_size(
             entry_price, 
-            stop_loss
+            stop_loss,
+            return_leverage=True
         )
         
         # risk == 0 인 경우 진입 스킵

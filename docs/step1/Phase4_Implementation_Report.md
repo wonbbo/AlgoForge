@@ -147,7 +147,7 @@ app = FastAPI(
 ```python
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js
+    allow_origins=["http://localhost:5001"],  # Next.js
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -695,7 +695,7 @@ if not file.filename.endswith('.csv'):
 ### 10.1 데이터셋 업로드
 
 ```bash
-curl -X POST "http://localhost:8000/api/datasets" \
+curl -X POST "http://localhost:6000/api/datasets" \
   -F "file=@test_data_A.csv" \
   -F "name=Test Dataset A" \
   -F "description=Test dataset" \
@@ -721,7 +721,7 @@ curl -X POST "http://localhost:8000/api/datasets" \
 ### 10.2 전략 등록
 
 ```bash
-curl -X POST "http://localhost:8000/api/strategies" \
+curl -X POST "http://localhost:6000/api/strategies" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "EMA Cross Strategy",
@@ -736,7 +736,7 @@ curl -X POST "http://localhost:8000/api/strategies" \
 ### 10.3 Run 생성 및 실행
 
 ```bash
-curl -X POST "http://localhost:8000/api/runs" \
+curl -X POST "http://localhost:6000/api/runs" \
   -H "Content-Type: application/json" \
   -d '{
     "dataset_id": 1,
@@ -763,7 +763,7 @@ curl -X POST "http://localhost:8000/api/runs" \
 ### 10.4 Run 상태 조회
 
 ```bash
-curl "http://localhost:8000/api/runs/1"
+curl "http://localhost:6000/api/runs/1"
 ```
 
 **응답** (실행 중):
@@ -792,7 +792,7 @@ curl "http://localhost:8000/api/runs/1"
 ### 10.5 Metrics 조회
 
 ```bash
-curl "http://localhost:8000/api/runs/1/metrics"
+curl "http://localhost:6000/api/runs/1/metrics"
 ```
 
 **응답**:
@@ -882,25 +882,25 @@ curl "http://localhost:8000/api/runs/1/metrics"
 ```bash
 # 프로젝트 루트에서
 cd apps/api
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 6000
 ```
 
 또는:
 
 ```bash
 # 프로젝트 루트에서
-python -m uvicorn apps.api.main:app --reload --port 8000
+python -m uvicorn apps.api.main:app --reload --port 6000
 ```
 
 ### API 문서 확인
 
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+- Swagger UI: http://localhost:6000/docs
+- ReDoc: http://localhost:6000/redoc
 
 ### 헬스 체크
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:6000/health
 ```
 
 ---
@@ -914,10 +914,10 @@ DATABASE_PATH=db/algoforge.db
 
 # API 서버
 API_HOST=0.0.0.0
-API_PORT=8000
+API_PORT=6000
 
 # CORS
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ORIGINS=http://localhost:5001,http://127.0.0.1:5001
 
 # 로그 레벨
 LOG_LEVEL=INFO
@@ -935,12 +935,12 @@ LOG_LEVEL=INFO
 pip install httpie
 
 # 사용
-http POST localhost:8000/api/strategies name="Test" definition:='{"entry_long":{}}'
+http POST localhost:6000/api/strategies name="Test" definition:='{"entry_long":{}}'
 ```
 
 **Postman**:
 - OpenAPI 스키마 import 가능
-- http://localhost:8000/openapi.json
+- http://localhost:6000/openapi.json
 
 ### 2. 로그 확인
 
@@ -960,7 +960,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "apps.api.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=6000,
         reload=True,
         log_level="debug"
     )

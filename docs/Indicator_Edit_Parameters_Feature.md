@@ -471,7 +471,7 @@ def calculate(df, params):
 ### 시나리오 1: 단일 출력 → 다중 출력 변경
 
 1. **기존 지표 확인**
-   - `http://localhost:3000/indicators/my_simple_ema`
+   - `http://localhost:5001/indicators/my_simple_ema`
    - output_fields: `["main"]`
 
 2. **편집 모드 진입**
@@ -505,7 +505,7 @@ def calculate_my_simple_ema(df, params):
 ### 시나리오 2: 카테고리 변경
 
 1. **지표 확인**
-   - `http://localhost:3000/indicators/momentum_indicator`
+   - `http://localhost:5001/indicators/momentum_indicator`
    - category: `volume` (잘못 등록됨)
 
 2. **편집 모드**

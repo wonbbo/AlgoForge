@@ -35,7 +35,7 @@ Step 2 진입 조건에서 보여야 할 옵션:
 ### 2. 페이지 새로고침
 
 ```
-http://localhost:3000/strategies/builder
+http://localhost:5001/strategies/builder
 ```
 
 **확인사항**: Console에 다음 로그가 출력되는지 확인
@@ -94,10 +94,10 @@ custom_volume 지표 "+" 버튼 클릭
 
 ```bash
 # 1. API 서버 실행 확인
-curl http://localhost:8000/api/indicators/
+curl http://localhost:6000/api/indicators/
 
 # 2. custom_volume 지표 확인
-curl http://localhost:8000/api/indicators/custom_volume
+curl http://localhost:6000/api/indicators/custom_volume
 ```
 
 **응답 확인**:
@@ -122,7 +122,7 @@ curl http://localhost:8000/api/indicators/custom_volume
 #### 체크 1: API 응답
 ```javascript
 // Console에서 실행
-fetch('http://localhost:8000/api/indicators/')
+fetch('http://localhost:6000/api/indicators/')
   .then(r => r.json())
   .then(data => {
     const custom = data.indicators.find(i => i.type === 'custom_volume');
@@ -216,7 +216,7 @@ Ctrl + Shift + R
 
 **확인**: 지표 상세 페이지 접속
 ```
-http://localhost:3000/indicators/custom_volume
+http://localhost:5001/indicators/custom_volume
 ```
 
 **출력 필드** 섹션에서 실제 필드 확인

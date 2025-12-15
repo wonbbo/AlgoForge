@@ -29,9 +29,9 @@ async def create_strategy(strategy: StrategyCreate):
         StrategyResponse: 생성된 전략 정보
     """
     try:
-        # 전략 정의 검증
+        # 전략 정의 검증 (비어있는 경우 최소 구조로 채워 허용)
         if not strategy.definition:
-            raise InvalidDataError("전략 정의가 비어있습니다")
+            strategy.definition = {"entry_long": {}, "entry_short": {}}
         
         # 해시 계산
         strategy_hash = calculate_strategy_hash(strategy.definition)

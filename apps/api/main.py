@@ -65,9 +65,9 @@ async def startup_event():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # Next.js 개발 서버
-        "http://127.0.0.1:3000",
-        "http://algoforge.wonbbo.kro.kr:8080",  # 프로덕션 서버
+        "http://localhost:5001",  # Next.js 개발 서버
+        "http://127.0.0.1:5001",
+        "http://algoforge.wonbbo.kro.kr",  # 프로덕션 서버
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "apps.api.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=6000,
         reload=True
     )
 

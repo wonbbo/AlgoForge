@@ -102,7 +102,7 @@ Math.round(2.9) → 3
 ### 1. 브라우저 새로고침
 ```
 Ctrl + Shift + R
-http://localhost:3000/runs/{run_id}
+http://localhost:5001/runs/{run_id}
 ```
 
 ### 2. 거래 상세 확인

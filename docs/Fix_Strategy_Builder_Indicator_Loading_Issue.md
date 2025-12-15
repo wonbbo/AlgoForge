@@ -248,7 +248,7 @@ outputFields = ['main', 'vol_pos']
 ### 시나리오 1: 정상 로딩
 
 ```
-1. http://localhost:3000/strategies/builder 접속
+1. http://localhost:5001/strategies/builder 접속
 2. Step 1: custom_volume 지표 추가
 3. Step 2로 이동
    └─ 1초 정도 "로딩 중..." 메시지 확인

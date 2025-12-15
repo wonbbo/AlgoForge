@@ -64,8 +64,9 @@ class RiskManager:
     def calculate_position_size(
         self, 
         entry_price: float, 
-        stop_loss: float
-    ) -> Tuple[float, float, float]:
+        stop_loss: float,
+        return_leverage: bool = False
+    ) -> Tuple[float, float] | Tuple[float, float, float]:
         """
         포지션 크기 계산 (레버리지 제약 적용)
         
@@ -74,7 +75,8 @@ class RiskManager:
             stop_loss: 손절 가격
         
         Returns:
-            (position_size, risk, leverage) 튜플
+            return_leverage=True  -> (position_size, risk, leverage)
+            return_leverage=False -> (position_size, risk)
             
         Note:
             risk == 0 인 경우 position_size = 0, leverage = 1.0 반환
@@ -102,7 +104,7 @@ class RiskManager:
         
         # risk가 0인 경우 처리 (division by zero 방지)
         if risk == 0:
-            return 0.0, 0.0, 1.0
+            return (0.0, 0.0, 1.0) if return_leverage else (0.0, 0.0)
         
         # 포지션 크기 계산 (리스크 기반)
         # 공식: (현재 잔고 * 리스크 비율) / 리스크
@@ -183,7 +185,9 @@ class RiskManager:
             if leverage < 1:
                 leverage = 1
         
-        return float(position_size), risk, float(leverage)
+        if return_leverage:
+            return float(position_size), risk, float(leverage)
+        return float(position_size), risk
     
     def calculate_tp1_price(
         self, 

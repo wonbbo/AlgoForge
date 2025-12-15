@@ -162,7 +162,7 @@ start_server.bat
 #### 방법 2: curl 테스트
 
 ```bash
-curl http://localhost:8000/api/runs/1/trades
+curl http://localhost:6000/api/runs/1/trades
 ```
 
 **기대 응답**:

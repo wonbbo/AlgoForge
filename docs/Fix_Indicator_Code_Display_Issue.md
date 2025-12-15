@@ -196,7 +196,7 @@ Frontend Indicator 타입
 ### 1. 커스텀 지표 등록
 
 ```
-http://localhost:3000/indicators/new
+http://localhost:5001/indicators/new
 ```
 
 1. 지표 정보 입력
@@ -213,7 +213,7 @@ http://localhost:3000/indicators/new
 ### 2. 지표 상세 페이지 확인
 
 ```
-http://localhost:3000/indicators/[등록한_지표_type]
+http://localhost:5001/indicators/[등록한_지표_type]
 ```
 
 **확인 사항**:
@@ -239,7 +239,7 @@ http://localhost:3000/indicators/[등록한_지표_type]
 
 ```bash
 # 지표 조회
-curl http://localhost:8000/api/indicators/custom_volume
+curl http://localhost:6000/api/indicators/custom_volume
 
 # 응답 확인
 {

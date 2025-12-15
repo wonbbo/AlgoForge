@@ -229,7 +229,7 @@ export default function NewIndicatorPage() {
                   required
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  쉼표로 구분 (단일 출력은 'main')
+                쉼표로 구분 (단일 출력은 &apos;main&apos;)
                 </p>
               </div>
             </div>

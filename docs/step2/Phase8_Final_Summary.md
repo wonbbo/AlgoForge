@@ -345,7 +345,7 @@ pnpm build
 ### 사용자용
 
 #### 전략 생성
-1. http://localhost:3000/strategies/builder 접속
+1. http://localhost:5001/strategies/builder 접속
 2. 전략 이름 입력
 3. 지표 선택 (Step 1)
 4. 진입 조건 구성 (Step 2)

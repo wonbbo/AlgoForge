@@ -7,6 +7,7 @@ SQLite 데이터베이스 연결 및 관리 모듈
 - 자동 스키마 초기화
 """
 
+import os
 import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
@@ -62,20 +63,25 @@ class Database:
             logger.warning(f"Schema file not found: {schema_path}")
             return
         
-        # 테이블 존재 여부 확인
+        # 핵심 테이블 존재 여부 확인 (datasets, indicators)
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name='datasets'"
                 )
-                table_exists = cursor.fetchone() is not None
+                datasets_exists = cursor.fetchone() is not None
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='indicators'"
+                )
+                indicators_exists = cursor.fetchone() is not None
         except Exception as e:
             logger.warning(f"Failed to check table existence: {e}")
-            table_exists = False
+            datasets_exists = False
+            indicators_exists = False
         
-        # 테이블이 없으면 스키마 적용
-        if not table_exists:
+        # 테이블이 없으면 스키마 전체 적용 (idempotent)
+        if not datasets_exists or not indicators_exists:
             try:
                 with open(schema_path, 'r', encoding='utf-8') as f:
                     schema = f.read()
@@ -278,7 +284,24 @@ def get_database(db_path: str = "db/algoforge.db") -> Database:
         Database: Database 인스턴스
     """
     global _db_instance
-    if _db_instance is None:
+    # 테스트 실행 시 별도 DB 사용 (PYTEST_CURRENT_TEST가 설정된 경우)
+    test_db_env = os.getenv("ALGOFORGE_TEST_DB_PATH")
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        # 테스트 케이스별 고유 DB 파일 경로 생성 → 테스트 간 격리
+        raw_name = os.getenv("PYTEST_CURRENT_TEST", "")
+        test_name = raw_name.split(" ")[0].replace("::", "_").replace("/", "_")
+        default_test_path = Path(".pytest_cache") / f"algoforge_{test_name}.db"
+        test_db_path = Path(test_db_env) if test_db_env else default_test_path
+        test_db_path.parent.mkdir(parents=True, exist_ok=True)
+        db_path = str(test_db_path)
+        # 새로운 인스턴스를 생성할 때만 파일 초기화
+        if (_db_instance is None) or (str(_db_instance.db_path) != db_path):
+            if test_db_path.exists():
+                test_db_path.unlink()
+            _db_instance = Database(db_path)
+        return _db_instance
+    
+    if _db_instance is None or str(_db_instance.db_path) != db_path:
         _db_instance = Database(db_path)
     return _db_instance
 

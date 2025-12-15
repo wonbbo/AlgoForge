@@ -22,7 +22,7 @@ graph TB
 ### Backend API 서버
 ```bash
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --reload --port 8000
+python -m uvicorn apps.api.main:app --reload --port 6000
 ```
 
 ### Frontend 개발 서버
@@ -37,7 +37,7 @@ pnpm dev
 
 #### Step 1: 지표 라이브러리 접속
 ```
-http://localhost:3000/indicators
+http://localhost:5001/indicators
 ```
 
 #### Step 2: 새 지표 등록
@@ -76,7 +76,7 @@ def calculate_my_vwap(df, params):
 ### 방법 2: API 직접 호출
 
 ```bash
-curl -X POST http://localhost:8000/api/indicators/custom \
+curl -X POST http://localhost:6000/api/indicators/custom \
   -H "Content-Type: application/json" \
   -d '{
     "name": "My Custom VWAP",
@@ -93,7 +93,7 @@ curl -X POST http://localhost:8000/api/indicators/custom \
 
 ### Step 1: 전략 빌더 접속
 ```
-http://localhost:3000/strategies/builder
+http://localhost:5001/strategies/builder
 ```
 
 ### Step 2: 지표 선택 (Step 1)
@@ -153,7 +153,7 @@ http://localhost:3000/strategies/builder
 
 ### Step 1: Run 생성
 ```
-http://localhost:3000/runs
+http://localhost:5001/runs
 ```
 1. "새 Run 생성" 버튼 클릭
 2. 데이터셋 선택
@@ -291,11 +291,11 @@ def calculate_custom_bb(df, params):
 **해결**:
 1. API 서버 실행 확인:
    ```bash
-   curl http://localhost:8000/api/indicators/
+   curl http://localhost:6000/api/indicators/
    ```
 2. CORS 설정 확인:
    - `apps/api/main.py`의 `allow_origins` 확인
-   - `http://localhost:3000` 포함되어 있어야 함
+   - `http://localhost:5001` 포함되어 있어야 함
 
 ### 증상 3: 로딩 스피너만 계속 돌아감
 
@@ -361,12 +361,12 @@ cd apps/web
 pnpm dev
 
 # 2. 브라우저 열기
-# http://localhost:3000/indicators/new
+# http://localhost:5001/indicators/new
 
 # 3. 정보 입력 후 등록
 
 # 4. 전략 빌더에서 확인
-# http://localhost:3000/strategies/builder
+# http://localhost:5001/strategies/builder
 ```
 
 ## 📊 등록된 지표 확인
@@ -379,12 +379,12 @@ python -c "import sqlite3; conn = sqlite3.connect('db/algoforge.db'); cursor = c
 
 ### API로 확인
 ```bash
-curl http://localhost:8000/api/indicators/
+curl http://localhost:6000/api/indicators/
 ```
 
 ### UI로 확인
 ```
-http://localhost:3000/indicators
+http://localhost:5001/indicators
 ```
 
 ## 💡 팁 & 트릭

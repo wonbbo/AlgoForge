@@ -24,7 +24,7 @@ pnpm install
 
 ```bash
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --reload
 ```
 
 ### 3. 프론트엔드 서버 실행
@@ -36,9 +36,9 @@ pnpm dev
 
 ### 4. 브라우저 접속
 
-- Strategy Builder: http://localhost:3000/strategies/builder
-- Strategy List: http://localhost:3000/strategies
-- Strategy Compare: http://localhost:3000/strategies/compare?ids=1,2,3
+- Strategy Builder: http://localhost:5001/strategies/builder
+- Strategy List: http://localhost:5001/strategies
+- Strategy Compare: http://localhost:5001/strategies/compare?ids=1,2,3
 
 ---
 

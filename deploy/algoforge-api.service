@@ -18,7 +18,7 @@ Group=www-data
 WorkingDirectory=/var/www/algoforge
 Environment="PATH=/var/www/algoforge/venv/bin"
 Environment="PYTHONPATH=/var/www/algoforge"
-ExecStart=/var/www/algoforge/venv/bin/uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --workers 2
+ExecStart=/var/www/algoforge/venv/bin/uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --workers 2
 Restart=always
 RestartSec=10
 StandardOutput=journal

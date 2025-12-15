@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=IndicatorList)
+@router.get("/", response_model=IndicatorList)
 def list_indicators(
     category: Optional[str] = Query(None, description="카테고리 필터 (trend/momentum/volatility/volume)"),
     implementation_type: Optional[str] = Query(None, description="구현 타입 필터 (builtin/custom)")

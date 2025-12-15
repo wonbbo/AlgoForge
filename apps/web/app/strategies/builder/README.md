@@ -52,7 +52,7 @@ app/strategies/builder/
 ## 접근 방법
 
 1. **웹 UI**: `/strategies` 페이지에서 "전략 빌더 (UI)" 버튼 클릭
-2. **직접 URL**: `http://localhost:3000/strategies/builder`
+2. **직접 URL**: `http://localhost:5001/strategies/builder`
 
 ## 개발 가이드
 

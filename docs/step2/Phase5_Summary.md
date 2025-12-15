@@ -131,7 +131,7 @@ apps/web/app/runs/
 ### 1. 백엔드 서버 실행
 ```bash
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --reload
 ```
 
 ### 2. 프론트엔드 서버 실행
@@ -141,9 +141,9 @@ pnpm dev
 ```
 
 ### 3. 브라우저 접속
-- Run 목록: http://localhost:3000/runs
-- Run 상세: http://localhost:3000/runs/[id]
-- Trade 상세: http://localhost:3000/runs/[id]/trades/[tradeId]
+- Run 목록: http://localhost:5001/runs
+- Run 상세: http://localhost:5001/runs/[id]
+- Trade 상세: http://localhost:5001/runs/[id]/trades/[tradeId]
 
 ---
 

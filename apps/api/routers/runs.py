@@ -122,7 +122,7 @@ def execute_backtest(run_id: int):
             return
         
         # CSV 파일 로드 (DataFrame 포함)
-        bars, df, _ = load_bars_from_csv(dataset["file_path"])
+        bars, df, _ = load_bars_from_csv(dataset["file_path"], include_df=True)
         
         # 전략 파서 생성 및 전략 함수 생성
         try:
@@ -642,7 +642,7 @@ async def get_trade_chart_data(run_id: int, trade_id: int):
             raise HTTPException(status_code=404, detail=f"Strategy {run['strategy_id']}를 찾을 수 없습니다")
         
         # CSV 파일 로드
-        bars, df, _ = load_bars_from_csv(dataset["file_path"])
+        bars, df, _ = load_bars_from_csv(dataset["file_path"], include_df=True)
         
         # 전략 파서 생성 (지표 계산)
         strategy_parser = StrategyParser(

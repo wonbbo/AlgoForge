@@ -176,7 +176,7 @@ pnpm dev
 ```
 
 ### 2. 브라우저 접근
-- URL: `http://localhost:3000/strategies/builder`
+- URL: `http://localhost:5001/strategies/builder`
 
 ### 3. 전략 작성 플로우
 1. **전략 이름 입력** (필수)

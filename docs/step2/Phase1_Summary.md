@@ -148,7 +148,7 @@ pnpm dev
 ```
 
 ### 2. 브라우저 접근
-- URL: `http://localhost:3000/strategies/builder`
+- URL: `http://localhost:5001/strategies/builder`
 - 또는 전략 페이지에서 "전략 빌더 (UI)" 버튼 클릭
 
 ### 3. 확인 사항

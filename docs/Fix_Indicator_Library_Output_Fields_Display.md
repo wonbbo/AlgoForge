@@ -329,7 +329,7 @@ output:
 ### 테스트 시나리오 1: 내장 지표 확인
 
 ```
-1. http://localhost:3000/indicators 접속
+1. http://localhost:5001/indicators 접속
 2. "내장" 필터 선택
 3. EMA 카드 확인
 
@@ -342,7 +342,7 @@ output:
 ### 테스트 시나리오 2: 단일 출력 커스텀 지표
 
 ```
-1. http://localhost:3000/indicators 접속
+1. http://localhost:5001/indicators 접속
 2. "커스텀" 필터 선택
 3. 단일 출력 지표 카드 확인
 
@@ -355,7 +355,7 @@ output:
 ### 테스트 시나리오 3: 다중 출력 커스텀 지표
 
 ```
-1. http://localhost:3000/indicators 접속
+1. http://localhost:5001/indicators 접속
 2. "커스텀" 필터 선택
 3. CustomVolume 카드 확인
 

@@ -158,7 +158,7 @@ conn.close()
 ### 방법 2: 프론트엔드에서 수정 (대안)
 
 ```
-1. http://localhost:3000/indicators/cvol 접속
+1. http://localhost:5001/indicators/cvol 접속
 2. 편집 모드 활성화
 3. 코드 수정
 4. 저장

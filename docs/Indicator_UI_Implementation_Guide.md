@@ -70,7 +70,7 @@ AlgoForge에 **지표 관리 UI**가 성공적으로 구현되었습니다.
 #### Backend API 서버
 ```bash
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --reload --port 8000
+python -m uvicorn apps.api.main:app --reload --port 6000
 ```
 
 또는 배치 파일 사용:
@@ -88,7 +88,7 @@ pnpm dev
 
 브라우저에서 접속:
 ```
-http://localhost:3000/indicators
+http://localhost:5001/indicators
 ```
 
 ### 3. 커스텀 지표 등록
@@ -243,7 +243,7 @@ Error: 서버와의 통신에 실패했습니다
 ```
 
 **해결**:
-1. Backend API 서버가 실행 중인지 확인 (`http://localhost:8000`)
+1. Backend API 서버가 실행 중인지 확인 (`http://localhost:6000`)
 2. CORS 설정 확인 (`apps/api/main.py`)
 3. 환경 변수 확인 (`NEXT_PUBLIC_API_URL`)
 

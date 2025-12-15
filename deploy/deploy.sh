@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 # 설정
 PROJECT_DIR="/var/www/algoforge"
 DOMAIN="algoforge.wonbbo.kro.kr"
-NGINX_PORT=8080
+NGINX_PORT=80
 
 # 헤더 출력 함수
 print_header() {

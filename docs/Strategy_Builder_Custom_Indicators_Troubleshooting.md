@@ -30,7 +30,7 @@ export interface IndicatorDraft {
 ### 1. API 서버 확인
 
 ```bash
-curl http://localhost:8000/api/indicators/
+curl http://localhost:6000/api/indicators/
 ```
 
 **기대 결과**: 내장 지표 + 커스텀 지표 JSON 응답
@@ -76,7 +76,7 @@ CustomVolume         | custom_volume        | custom
 ```bash
 # 1. API 서버 시작
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --reload --port 8000
+python -m uvicorn apps.api.main:app --reload --port 6000
 
 # 2. Frontend 서버 시작 (다른 터미널)
 cd apps/web
@@ -84,7 +84,7 @@ pnpm dev
 ```
 
 #### Step 2: 지표 등록
-1. `http://localhost:3000/indicators/new` 접속
+1. `http://localhost:5001/indicators/new` 접속
 2. 테스트 지표 등록:
    - 이름: `Test SMA`
    - 타입: `test_sma`
@@ -100,7 +100,7 @@ pnpm dev
 3. "코드 검증" → "등록"
 
 #### Step 3: 전략 빌더에서 확인
-1. `http://localhost:3000/strategies/builder` 접속
+1. `http://localhost:5001/strategies/builder` 접속
 2. **Step 1: 지표 선택**에서 확인
 3. "Test SMA" 카드 확인 (커스텀 배지 표시)
 4. "+" 버튼 클릭하여 추가
@@ -182,12 +182,12 @@ const loadIndicators = async () => {
 ## 최종 체크리스트
 
 ### Backend 확인
-- [ ] API 서버 실행 중 (`http://localhost:8000`)
+- [ ] API 서버 실행 중 (`http://localhost:6000`)
 - [ ] `/api/indicators` 엔드포인트 응답 확인
 - [ ] 커스텀 지표가 DB에 등록되어 있음
 
 ### Frontend 확인
-- [ ] 개발 서버 실행 중 (`http://localhost:3000`)
+- [ ] 개발 서버 실행 중 (`http://localhost:5001`)
 - [ ] `IndicatorDraft.type`이 `string`으로 변경됨
 - [ ] 브라우저 캐시 삭제 및 새로고침
 
@@ -203,7 +203,7 @@ const loadIndicators = async () => {
 
 ```javascript
 // 개발자 도구 Console에서 실행
-fetch('http://localhost:8000/api/indicators/')
+fetch('http://localhost:6000/api/indicators/')
   .then(r => r.json())
   .then(data => {
     console.log('총 지표:', data.total);

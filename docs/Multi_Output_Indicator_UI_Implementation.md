@@ -356,7 +356,7 @@ StrategyParser: 지표 계산
 ```bash
 # Backend
 cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
-python -m uvicorn apps.api.main:app --reload --port 8000
+python -m uvicorn apps.api.main:app --reload --port 6000
 
 # Frontend (새 터미널)
 cd apps\web
@@ -365,7 +365,7 @@ pnpm dev
 
 ### 2. 브라우저 테스트
 ```
-http://localhost:3000/strategies/builder
+http://localhost:5001/strategies/builder
 ```
 
 1. **Step 1: 지표 선택**

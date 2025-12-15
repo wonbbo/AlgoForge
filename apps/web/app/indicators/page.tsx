@@ -6,7 +6,7 @@
  * 내장 지표와 커스텀 지표 목록을 조회하고 관리합니다.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,11 +29,7 @@ export default function IndicatorsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  useEffect(() => {
-    fetchIndicators()
-  }, [filter])
-  
-  const fetchIndicators = async () => {
+  const fetchIndicators = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     
@@ -47,7 +43,12 @@ export default function IndicatorsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [filter])
+  
+  useEffect(() => {
+    // 필터 변경 시 목록 재조회
+    fetchIndicators()
+  }, [fetchIndicators])
   
   const getCategoryIcon = (category: string) => {
     switch(category) {

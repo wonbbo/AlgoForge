@@ -38,11 +38,11 @@ class Metrics:
     average_pnl: float
     profit_factor: float
     max_drawdown: float
-    max_consecutive_wins: int
-    max_consecutive_losses: int
-    expectancy: float
-    score: float
-    grade: str
+    max_consecutive_wins: int = 0
+    max_consecutive_losses: int = 0
+    expectancy: float = 0.0
+    score: float = 0.0
+    grade: str = 'D'
 
 
 class MetricsCalculator:

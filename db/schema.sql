@@ -3,6 +3,43 @@
 -- WAL mode 활성화
 PRAGMA journal_mode=WAL;
 
+-- indicators 테이블 (내장/커스텀 지표 메타데이터)
+CREATE TABLE IF NOT EXISTS indicators (
+    indicator_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,                     -- 지표 이름 (예: "EMA")
+    type TEXT NOT NULL UNIQUE,              -- 지표 타입 (고유 ID, 예: "ema")
+    description TEXT,                       -- 지표 설명
+    category TEXT NOT NULL,                 -- 카테고리: 'trend', 'momentum', 'volatility', 'volume'
+    implementation_type TEXT NOT NULL,      -- 'builtin' 또는 'custom'
+    code TEXT,                              -- 커스텀 지표의 Python 코드 (builtin은 NULL)
+    params_schema TEXT,                     -- JSON: 파라미터 스키마
+    output_fields TEXT NOT NULL,            -- JSON: 출력 필드 목록 ['main'] or ['main', 'signal', 'histogram']
+    created_at INTEGER NOT NULL,            -- 생성 시간 (Unix timestamp)
+    updated_at INTEGER NOT NULL             -- 수정 시간 (Unix timestamp)
+);
+
+-- 인덱스
+CREATE INDEX IF NOT EXISTS idx_indicators_type ON indicators(type);
+CREATE INDEX IF NOT EXISTS idx_indicators_category ON indicators(category);
+CREATE INDEX IF NOT EXISTS idx_indicators_implementation ON indicators(implementation_type);
+
+-- 내장 지표 기본 데이터 삽입 (중복 방지를 위해 OR IGNORE 사용)
+INSERT OR IGNORE INTO indicators (
+    name, type, description, category, implementation_type, code, params_schema, output_fields, created_at, updated_at
+) VALUES
+    ('EMA', 'ema', 'Exponential Moving Average - 지수 이동 평균', 'trend', 'builtin', NULL,
+     '{"source": "close", "period": 20}', '["main"]',
+     strftime('%s', 'now'), strftime('%s', 'now')),
+    ('SMA', 'sma', 'Simple Moving Average - 단순 이동 평균', 'trend', 'builtin', NULL,
+     '{"source": "close", "period": 20}', '["main"]',
+     strftime('%s', 'now'), strftime('%s', 'now')),
+    ('RSI', 'rsi', 'Relative Strength Index - 상대 강도 지수', 'momentum', 'builtin', NULL,
+     '{"source": "close", "period": 14}', '["main"]',
+     strftime('%s', 'now'), strftime('%s', 'now')),
+    ('ATR', 'atr', 'Average True Range - 평균 진폭', 'volatility', 'builtin', NULL,
+     '{"period": 14}', '["main"]',
+     strftime('%s', 'now'), strftime('%s', 'now'));
+
 -- datasets 테이블
 CREATE TABLE IF NOT EXISTS datasets (
     dataset_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,6 +95,7 @@ CREATE TABLE IF NOT EXISTS trades (
     initial_risk REAL NOT NULL,
     stop_loss REAL NOT NULL,
     take_profit_1 REAL NOT NULL,
+    leverage REAL NOT NULL DEFAULT 1.0, -- 사용된 레버리지
     is_closed INTEGER NOT NULL DEFAULT 0,
     total_pnl REAL,
     balance_at_entry REAL NOT NULL DEFAULT 0.0,  -- 진입 시점의 잔고 (리스크 제한 계산용)
@@ -109,6 +147,14 @@ CREATE TABLE IF NOT EXISTS leverage_brackets (
     created_at INTEGER NOT NULL,
     UNIQUE(bracket_min, bracket_max)
 );
+
+-- 레버리지 기본 데이터 삽입 (테스트 및 기본 동작용)
+INSERT OR IGNORE INTO leverage_brackets (
+    bracket_min, bracket_max, max_leverage, m_margin_rate, m_amount, created_at
+) VALUES
+    (0, 10000, 75, 0.005, 0, strftime('%s','now')),
+    (10000, 200000, 75, 0.005, 0, strftime('%s','now')),
+    (200000, 1000000000, 25, 0.01, 0, strftime('%s','now'));
 
 -- run_config_presets 테이블
 CREATE TABLE IF NOT EXISTS run_config_presets (

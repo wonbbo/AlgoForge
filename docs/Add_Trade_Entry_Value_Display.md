@@ -219,7 +219,7 @@ Destructive (빨간색): 주의/리스크 (초기 리스크)
 
 ### 1. 브라우저 접속
 ```
-http://localhost:3000/runs/{run_id}
+http://localhost:5001/runs/{run_id}
 ```
 
 ### 2. 거래 선택

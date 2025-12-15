@@ -8,7 +8,7 @@ import requests
 import json
 import time
 
-BASE_URL = "http://localhost:8000/api"
+BASE_URL = "http://localhost:6000/api"
 
 def test_run_execution():
     """Run 실행 테스트"""

@@ -343,7 +343,7 @@ export default defineConfig({
   fullyParallel: true,
   
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:5001',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'on-first-retry',
@@ -358,7 +358,7 @@ export default defineConfig({
   
   webServer: {
     command: 'pnpm dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:5001',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },
@@ -450,7 +450,7 @@ test('동일한 전략을 여러 번 생성해도 동일한 JSON이 생성된다
 ```json
 {
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev -p 5001",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

@@ -135,7 +135,7 @@ restart_server.bat
 
 ## 🔧 문제 해결
 
-### Q1. 포트 8000이 이미 사용 중입니다
+### Q1. 포트 6000이 이미 사용 중입니다
 **해결책**:
 ```bash
 stop_server.bat  # 기존 서버 종료
@@ -148,7 +148,7 @@ start_server.bat  # 다시 시작
 **해결책**:
 - Python 설치 확인
 - 가상환경 활성화 확인
-- 수동으로 API 접속: http://localhost:8000/docs
+- 수동으로 API 접속: http://localhost:6000/docs
 
 ### Q3. 스크립트 실행이 안 됩니다
 **해결책**:
@@ -182,7 +182,7 @@ stop_server.bat  # 강제 종료
 ## 📚 관련 문서
 - [AlgoForge PRD](docs/AlgoForge_PRD_v1.0.md)
 - [AlgoForge TRD](docs/AlgoForge_TRD_v1.0.md)
-- [API 문서](http://localhost:8000/docs) (서버 실행 시)
+- [API 문서](http://localhost:6000/docs) (서버 실행 시)
 
 ---
 
@@ -194,13 +194,13 @@ stop_server.bat  # 강제 종료
 ```bash
 # 서버 시작
 cd apps/api
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 6000
 
 # 서버 중지 (터미널에서)
 Ctrl+C
 
 # 포트 확인
-netstat -ano | findstr :8000
+netstat -ano | findstr :6000
 
 # 프로세스 강제 종료
 taskkill /PID <프로세스ID> /F
