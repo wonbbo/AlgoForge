@@ -130,7 +130,7 @@ apps/web/app/runs/
 
 ### 1. 백엔드 서버 실행
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -m uvicorn apps.api.main:app --host 0.0.0.0 --port 6000 --reload
 ```
 

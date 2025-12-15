@@ -69,7 +69,7 @@ AlgoForge에 **지표 관리 UI**가 성공적으로 구현되었습니다.
 
 #### Backend API 서버
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -m uvicorn apps.api.main:app --reload --port 6000
 ```
 

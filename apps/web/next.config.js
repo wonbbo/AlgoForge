@@ -8,6 +8,12 @@ const nextConfig = {
     'https://algoforge.wonbbo.kro.kr:443',
     'http://algoforge.wonbbo.kro.kr:5001',
     'https://algoforge.wonbbo.kro.kr:5001',
+    // Nginx를 통한 접근을 위한 추가 설정
+    'http://localhost:5001',
+    'http://127.0.0.1:5001',
+    // 모든 서브도메인 허용 (개발 환경에서만 사용)
+    'http://*.wonbbo.kro.kr',
+    'https://*.wonbbo.kro.kr',
   ],
   
   // ESLint 설정 (Next.js 14 호환)

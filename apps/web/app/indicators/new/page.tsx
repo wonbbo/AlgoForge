@@ -18,10 +18,16 @@ import {
   CheckCircle, 
   Loader2,
   ArrowLeft,
-  Code
+  Code,
+  Plus,
+  X,
+  Settings
 } from 'lucide-react'
 import { indicatorApi } from '@/lib/api-client'
-import type { IndicatorCreate, CodeValidationResult } from '@/lib/types'
+import type { IndicatorCreate, CodeValidationResult, ChartConfig, ChartSeriesConfig } from '@/lib/types'
+import { generateHexColorFromField } from '@/lib/chart-utils'
+import { ChartConfigModal } from '../[type]/components/ChartConfigModal'
+import { ChartTypePreview } from '../[type]/components/ChartTypePreview'
 
 export default function NewIndicatorPage() {
   const router = useRouter()
@@ -67,7 +73,21 @@ export default function NewIndicatorPage() {
     output_fields: ['main']
   })
   
-  const [outputFieldsInput, setOutputFieldsInput] = useState('main')
+  const [outputFields, setOutputFields] = useState<string[]>(['main'])
+  const [chartConfig, setChartConfig] = useState<ChartConfig>({
+    main: {
+      chart_name: 'main',
+      type: 'line',
+      properties: {
+        color: generateHexColorFromField('main'),
+        lineWidth: 1,
+        lineStyle: 0,
+        visible: true
+      }
+    }
+  })
+  const [chartConfigModalOpen, setChartConfigModalOpen] = useState(false)
+  const [editingField, setEditingField] = useState<string>('')
   const [validationResult, setValidationResult] = useState<CodeValidationResult | null>(null)
   const [isValidating, setIsValidating] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -111,12 +131,6 @@ export default function NewIndicatorPage() {
       return
     }
     
-    // output_fields 파싱
-    const outputFields = outputFieldsInput
-      .split(',')
-      .map(f => f.trim())
-      .filter(f => f.length > 0)
-    
     if (outputFields.length === 0) {
       alert('최소 하나의 출력 필드가 필요합니다')
       return
@@ -134,9 +148,15 @@ export default function NewIndicatorPage() {
     setError(null)
     
     try {
+      // chart_config 디버깅
+      console.log('전송할 chart_config:', chartConfig)
+      console.log('chart_config 키 개수:', Object.keys(chartConfig).length)
+      console.log('outputFields:', outputFields)
+      
       await indicatorApi.create({
         ...formData,
-        output_fields: outputFields
+        output_fields: outputFields,
+        chart_config: Object.keys(chartConfig).length > 0 ? chartConfig : undefined
       })
       
       // 성공 시 목록 페이지로 이동
@@ -235,19 +255,127 @@ export default function NewIndicatorPage() {
               </div>
               
               <div>
-                <Label htmlFor="output_fields">출력 필드 *</Label>
-                <Input
-                  id="output_fields"
-                  value={outputFieldsInput}
-                  onChange={e => setOutputFieldsInput(e.target.value)}
-                  placeholder="예: main 또는 main,signal,histogram"
-                  required
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                쉼표로 구분 (단일 출력은 &apos;main&apos;)
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>출력 필드 *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newField = `field_${Date.now()}`
+                      setOutputFields([...outputFields, newField])
+                      const newConfig = { ...chartConfig }
+                      newConfig[newField] = {
+                        chart_name: 'main',
+                        type: 'line',
+                        properties: {
+                          color: generateHexColorFromField(newField),
+                          lineWidth: 1,
+                          lineStyle: 0,
+                          visible: true
+                        }
+                      }
+                      setChartConfig(newConfig)
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    추가
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {outputFields.map((field, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
+                      <Input
+                        value={field}
+                        onChange={e => {
+                          const newFields = [...outputFields]
+                          const oldField = newFields[index]
+                          newFields[index] = e.target.value
+                          setOutputFields(newFields)
+                          
+                          // chart_config 키도 업데이트
+                          if (oldField !== e.target.value) {
+                            const newConfig = { ...chartConfig }
+                            if (newConfig[oldField]) {
+                              // 필드명이 변경되면 색상도 재생성
+                              const existingConfig = newConfig[oldField]
+                              newConfig[e.target.value] = {
+                                ...existingConfig,
+                                properties: {
+                                  ...existingConfig.properties,
+                                  color: generateHexColorFromField(e.target.value)
+                                }
+                              }
+                              delete newConfig[oldField]
+                              setChartConfig(newConfig)
+                            } else {
+                              // 기존 설정이 없으면 새로 생성
+                              newConfig[e.target.value] = {
+                                chart_name: 'main',
+                                type: 'line',
+                                properties: {
+                                  color: generateHexColorFromField(e.target.value),
+                                  lineWidth: 2,
+                                  lineStyle: 0
+                                }
+                              }
+                              setChartConfig(newConfig)
+                            }
+                          }
+                        }}
+                        placeholder="필드명 입력"
+                        className="flex-1"
+                      />
+                      <ChartTypePreview config={chartConfig[field] || null} />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingField(field)
+                          setChartConfigModalOpen(true)
+                        }}
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        설정
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newFields = outputFields.filter((_, i) => i !== index)
+                          setOutputFields(newFields)
+                          const newConfig = { ...chartConfig }
+                          delete newConfig[field]
+                          setChartConfig(newConfig)
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {outputFields.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      출력 필드가 없습니다. 추가 버튼을 클릭하여 필드를 추가하세요.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
+            
+            {/* 차트 설정 모달 */}
+            <ChartConfigModal
+              open={chartConfigModalOpen}
+              onOpenChange={setChartConfigModalOpen}
+              field={editingField}
+              config={chartConfig[editingField] || null}
+              onSave={(field, config) => {
+                const newConfig = { ...chartConfig }
+                newConfig[field] = config
+                setChartConfig(newConfig)
+              }}
+            />
             
             <div>
               <Label htmlFor="params_schema">파라미터 스키마 (JSON) *</Label>

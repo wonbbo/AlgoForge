@@ -65,7 +65,7 @@ dataset_hash + strategy_hash + engine_version = 동일 결과
 ### 2.1 권장 폴더 구조
 
 ```
-AlgoForge/
+algoforge/
 ├─ engine/                    # 백테스트 엔진 (최우선 구현)
 │  ├─ __init__.py
 │  ├─ core/

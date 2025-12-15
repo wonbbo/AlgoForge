@@ -355,7 +355,7 @@ StrategyParser: 지표 계산
 ### 1. 개발 서버 실행
 ```bash
 # Backend
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -m uvicorn apps.api.main:app --reload --port 6000
 
 # Frontend (새 터미널)

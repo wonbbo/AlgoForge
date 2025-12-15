@@ -16,9 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react"
+import { ArrowLeft, TrendingUp, TrendingDown, Settings } from "lucide-react"
 import Link from "next/link"
 import { TradeChart } from "./components/TradeChart"
+import { ChartConfigModal } from "./components/ChartConfigModal"
+import { ChartTypePreview } from "./components/ChartTypePreview"
 
 /**
  * Trade 상세 페이지
@@ -36,8 +38,12 @@ export default function TradeDetailPage() {
   const [chartData, setChartData] = useState<ChartDataResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [chartLoading, setChartLoading] = useState(true)
+  const [chartConfigModalOpen, setChartConfigModalOpen] = useState(false)
+  const [editingIndicatorKey, setEditingIndicatorKey] = useState<string>('')
 
   useEffect(() => {
+    let isMounted = true
+    
     async function loadTradeDetail() {
       try {
         // Run 정보와 Trade 정보를 함께 로드
@@ -45,6 +51,8 @@ export default function TradeDetailPage() {
           runApi.get(runId),
           runApi.getTrades(runId)
         ])
+        
+        if (!isMounted) return
         
         setRun(runData)
         
@@ -57,26 +65,45 @@ export default function TradeDetailPage() {
           setTrade(foundTrade)
         }
       } catch (error) {
+        if (!isMounted) return
         console.error('Failed to load trade detail:', error)
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     async function loadChartData() {
       try {
         const data = await runApi.getTradeChartData(runId, tradeId)
+        
+        if (!isMounted) return
+        
+        // 디버깅: indicator_chart_config 확인
+        console.log('Chart data loaded:', {
+          indicators: Object.keys(data.indicators || {}),
+          indicator_chart_config: data.indicator_chart_config,
+          indicator_chart_config_keys: Object.keys(data.indicator_chart_config || {})
+        })
         setChartData(data)
       } catch (error) {
+        if (!isMounted) return
         console.error('Failed to load chart data:', error)
       } finally {
-        setChartLoading(false)
+        if (isMounted) {
+          setChartLoading(false)
+        }
       }
     }
 
     if (runId && tradeId) {
       loadTradeDetail()
       loadChartData()
+    }
+    
+    return () => {
+      isMounted = false
     }
   }, [runId, tradeId])
 
@@ -204,6 +231,48 @@ export default function TradeDetailPage() {
                 </p>
               </div>
             </div>
+            
+            {/* 세 번째 줄 - 잔고 정보 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t">
+              <div>
+                <p className="text-sm text-muted-foreground">초기 잔고</p>
+                <p className="text-lg font-bold font-mono">
+                  {run ? formatCurrency(run.initial_balance) : '-'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  백테스트 시작 시점
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">진입 시점 잔고</p>
+                <p className="text-lg font-bold font-mono text-blue-600 dark:text-blue-400">
+                  {trade.balance_at_entry 
+                    ? formatCurrency(trade.balance_at_entry)
+                    : (run ? formatCurrency(run.initial_balance) : '-')
+                  }
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  거래 진입 시점의 자산
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">청산 시점 잔고</p>
+                <p className={`text-lg font-bold font-mono ${
+                  (trade.balance_at_entry || (run?.initial_balance || 0)) + (trade.total_pnl || 0) >= (trade.balance_at_entry || (run?.initial_balance || 0))
+                    ? 'text-profit' 
+                    : 'text-loss'
+                }`}>
+                  {(() => {
+                    const entryBalance = trade.balance_at_entry || run?.initial_balance || 0
+                    const exitBalance = entryBalance + (trade.total_pnl || 0)
+                    return formatCurrency(exitBalance)
+                  })()}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  진입 잔고 + 총 손익
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -286,7 +355,9 @@ export default function TradeDetailPage() {
       {/* 차트 */}
       <Card>
         <CardHeader>
-          <CardTitle>거래 차트</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>거래 차트</CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
           {chartLoading ? (
@@ -294,7 +365,62 @@ export default function TradeDetailPage() {
               <p className="text-muted-foreground">차트 로딩 중...</p>
             </div>
           ) : chartData ? (
-            <TradeChart chartData={chartData} />
+            <>
+              <div className="mb-4 space-y-2">
+                {chartData.indicators && Object.keys(chartData.indicators).length > 0 ? (
+                  Object.keys(chartData.indicators).map((indicatorKey) => {
+                    const config = chartData.indicator_chart_config?.[indicatorKey] || null
+                    // 디버깅: 각 지표의 config 확인
+                    if (!config) {
+                      console.warn(`지표 ${indicatorKey}의 chart_config를 찾을 수 없습니다.`, {
+                        indicator_chart_config: chartData.indicator_chart_config,
+                        indicatorKey
+                      })
+                    }
+                    return (
+                      <div
+                        key={indicatorKey}
+                        className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <span className="font-medium text-sm flex-1">{indicatorKey}</span>
+                        <ChartTypePreview config={config} />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingIndicatorKey(indicatorKey)
+                            setChartConfigModalOpen(true)
+                          }}
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          설정
+                        </Button>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    표시할 지표가 없습니다.
+                  </p>
+                )}
+              </div>
+              <TradeChart chartData={chartData} />
+              <ChartConfigModal
+                open={chartConfigModalOpen}
+                onOpenChange={setChartConfigModalOpen}
+                field={editingIndicatorKey}
+                config={chartData.indicator_chart_config?.[editingIndicatorKey] || null}
+                onSave={(field, config) => {
+                  setChartData({
+                    ...chartData,
+                    indicator_chart_config: {
+                      ...(chartData.indicator_chart_config || {}),
+                      [field]: config
+                    }
+                  })
+                }}
+              />
+            </>
           ) : (
             <div className="flex items-center justify-center py-12">
               <p className="text-muted-foreground">차트 데이터를 불러올 수 없습니다</p>

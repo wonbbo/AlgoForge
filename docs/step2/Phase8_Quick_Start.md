@@ -21,7 +21,7 @@
 ### 1단계: 의존성 설치 (처음만)
 
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge\apps\web
+cd /home/wonbbo/algoforge\apps\web
 pnpm install
 ```
 

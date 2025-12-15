@@ -140,7 +140,7 @@ apps/web/
 ### 1. 단위 테스트 실행
 
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge\apps\web
+cd /home/wonbbo/algoforge\apps\web
 pnpm test
 ```
 

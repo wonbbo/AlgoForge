@@ -136,7 +136,7 @@ git clone <your-repository-url> .
 
 ```bash
 # 로컬 터미널에서 실행
-scp -r /path/to/AlgoForge/* user@server:/var/www/algoforge/
+scp -r /path/to/algoforge/* user@server:/var/www/algoforge/
 ```
 
 ### 3.3 환경 변수 파일 설정

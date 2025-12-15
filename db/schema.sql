@@ -1,4 +1,8 @@
--- AlgoForge Database Schema v1.0
+-- AlgoForge Database Schema v1.1
+-- Updated: 2025-12-15
+-- Changes:
+--   - Added chart_config field to indicators table
+--   - All migrations integrated into base schema
 
 -- WAL mode 활성화
 PRAGMA journal_mode=WAL;
@@ -14,6 +18,7 @@ CREATE TABLE IF NOT EXISTS indicators (
     code TEXT,                              -- 커스텀 지표의 Python 코드 (builtin은 NULL)
     params_schema TEXT,                     -- JSON: 파라미터 스키마
     output_fields TEXT NOT NULL,            -- JSON: 출력 필드 목록 ['main'] or ['main', 'signal', 'histogram']
+    chart_config TEXT,                      -- JSON: 차트 설정 (output_field -> {chart_name, type, properties})
     created_at INTEGER NOT NULL,            -- 생성 시간 (Unix timestamp)
     updated_at INTEGER NOT NULL             -- 수정 시간 (Unix timestamp)
 );
@@ -169,6 +174,18 @@ CREATE TABLE IF NOT EXISTS run_config_presets (
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
 );
+
+-- 기본 프리셋 데이터 삽입 (중복 방지를 위해 OR IGNORE 사용)
+INSERT OR IGNORE INTO run_config_presets (
+    name, description, initial_balance, risk_percent, risk_reward_ratio, 
+    rebalance_interval, is_default, created_at, updated_at
+) VALUES
+    ('기본', '표준 리스크 관리 설정 (2% 리스크, 1.5 R:R)', 1000.0, 0.02, 1.5, 50, 1,
+     strftime('%s', 'now'), strftime('%s', 'now')),
+    ('보수적', '낮은 리스크, 높은 R:R (1% 리스크, 2.0 R:R)', 1000.0, 0.01, 2.0, 50, 0,
+     strftime('%s', 'now'), strftime('%s', 'now')),
+    ('공격적', '높은 리스크, 표준 R:R (3% 리스크, 1.5 R:R)', 1000.0, 0.03, 1.5, 50, 0,
+     strftime('%s', 'now'), strftime('%s', 'now'));
 
 -- 인덱스
 CREATE INDEX IF NOT EXISTS idx_runs_dataset ON runs(dataset_id);

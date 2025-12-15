@@ -15,6 +15,10 @@ class IndicatorBase(BaseModel):
         ..., 
         description="카테고리: 'trend', 'momentum', 'volatility', 'volume' 중 하나"
     )
+    chart_config: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None,
+        description="차트 설정 (output_field -> {chart_name, type, properties})"
+    )
 
 
 class IndicatorResponse(IndicatorBase):
@@ -37,6 +41,10 @@ class IndicatorResponse(IndicatorBase):
     output_fields: List[str] = Field(
         ..., 
         description="출력 필드명 목록 (예: ['main'] 또는 ['main', 'signal', 'histogram'])"
+    )
+    chart_config: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None,
+        description="차트 설정 (output_field -> {chart_name, type, properties})"
     )
     created_at: int = Field(..., description="생성 시간 (Unix timestamp)")
 
@@ -90,6 +98,10 @@ class CustomIndicatorUpdate(BaseModel):
     code: Optional[str] = Field(None, description="Python 함수 코드")
     params_schema: Optional[str] = Field(None, description="파라미터 스키마")
     output_fields: Optional[List[str]] = Field(None, description="출력 필드명 목록")
+    chart_config: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None,
+        description="차트 설정 (output_field -> {chart_name, type, properties})"
+    )
 
 
 class IndicatorList(BaseModel):

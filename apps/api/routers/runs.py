@@ -717,14 +717,27 @@ async def get_trade_chart_data(run_id: int, trade_id: int):
         # 지표 데이터 추출
         indicators_data = {}
         indicator_types = {}
+        indicator_chart_config = {}
         
-        # 지표 메타 정보 로드 (output_fields 확인용)
+        # 지표 메타 정보 로드 (output_fields, chart_config 확인용)
         indicators_metadata = {}
+        indicators_chart_configs = {}
         try:
             with db.get_connection() as conn:
-                cursor = conn.execute("SELECT type, output_fields FROM indicators")
+                cursor = conn.execute("SELECT type, output_fields, chart_config FROM indicators")
                 for row in cursor.fetchall():
-                    indicators_metadata[row[0]] = json.loads(row[1])
+                    indicator_type = row[0]
+                    # 대소문자 구분 없이 저장 (소문자로 정규화)
+                    indicator_type_normalized = indicator_type.lower()
+                    indicators_metadata[indicator_type_normalized] = json.loads(row[1])
+                    # chart_config 파싱
+                    chart_config = None
+                    if len(row) > 2 and row[2]:
+                        try:
+                            chart_config = json.loads(row[2])
+                        except (json.JSONDecodeError, TypeError):
+                            chart_config = None
+                    indicators_chart_configs[indicator_type_normalized] = chart_config
         except Exception as e:
             logger.warning(f"지표 메타 정보 로드 실패: {e}")
         
@@ -736,8 +749,23 @@ async def get_trade_chart_data(run_id: int, trade_id: int):
             if not indicator_id:
                 continue
             
+            # indicator_id를 문자열로 변환 (일관성 유지)
+            indicator_id = str(indicator_id)
+            
             # 지표의 output_fields 확인
             output_fields = indicators_metadata.get(indicator_type, ["main"])
+            
+            # 지표의 chart_config 확인
+            indicator_chart_config_raw = indicators_chart_configs.get(indicator_type)
+            
+            # 디버깅: chart_config 확인
+            if indicator_chart_config_raw:
+                logger.info(f"지표 {indicator_type}의 chart_config 발견: {indicator_chart_config_raw}, 타입: {type(indicator_chart_config_raw)}")
+                if isinstance(indicator_chart_config_raw, dict):
+                    for f, cfg in indicator_chart_config_raw.items():
+                        logger.info(f"  필드 {f}: {cfg}, 타입: {cfg.get('type') if isinstance(cfg, dict) else 'N/A'}")
+            else:
+                logger.info(f"지표 {indicator_type}의 chart_config가 없습니다")
             
             # 각 output_field별로 데이터 추출
             for field in output_fields:
@@ -760,9 +788,94 @@ async def get_trade_chart_data(run_id: int, trade_id: int):
                     
                     # 지표 타입 분류 (각 필드마다)
                     indicator_types[display_key] = classify_indicator_display_type(indicator_type)
+                    
+                    # chart_config에서 해당 필드의 설정 가져오기
+                    chart_config_for_field = None
+                    if indicator_chart_config_raw and isinstance(indicator_chart_config_raw, dict) and field in indicator_chart_config_raw:
+                        field_config = indicator_chart_config_raw[field]
+                        if isinstance(field_config, dict):
+                            # 딕셔너리인 경우 복사
+                            chart_config_for_field = field_config.copy()
+                        else:
+                            # 딕셔너리가 아닌 경우 그대로 사용
+                            chart_config_for_field = field_config
+                        
+                        # 타입 확인 및 로깅
+                        config_type = chart_config_for_field.get("type") if isinstance(chart_config_for_field, dict) else None
+                        logger.info(f"지표 {indicator_type}의 필드 {field}에 대한 chart_config 타입: {config_type}, 전체 설정: {chart_config_for_field}")
+                        
+                        # 포인트 타입인 경우 chart_name을 강제로 main으로 설정
+                        if isinstance(chart_config_for_field, dict) and config_type == "point":
+                            chart_config_for_field["chart_name"] = "main"
+                            logger.info(f"포인트 타입 감지: {field}의 chart_name을 main으로 설정")
+                        
+                        # visible 필드가 없으면 기본값 True로 설정
+                        if isinstance(chart_config_for_field, dict) and "properties" in chart_config_for_field:
+                            if "visible" not in chart_config_for_field["properties"]:
+                                chart_config_for_field["properties"]["visible"] = True
+                    else:
+                        # 기본값 생성 (필드명 기반 색상 생성)
+                        from apps.api.utils.chart_utils import generate_color_from_field
+                        chart_name = "main"
+                        if classify_indicator_display_type(indicator_type) == "oscillator":
+                            chart_name = indicator_type
+                        chart_config_for_field = {
+                            "chart_name": chart_name,
+                            "type": "line",
+                            "properties": {
+                                "color": generate_color_from_field(display_key),
+                                "lineWidth": 1,
+                                "lineStyle": 0,
+                                "visible": True
+                            }
+                        }
+                        logger.debug(f"지표 {indicator_type}의 필드 {field}에 대한 기본 chart_config 생성: {chart_config_for_field}")
+                    
+                    # 포인트 타입인 경우 chart_name을 강제로 main으로 설정 (이중 체크)
+                    if isinstance(chart_config_for_field, dict):
+                        config_type = chart_config_for_field.get("type")
+                        if config_type == "point":
+                            chart_config_for_field["chart_name"] = "main"
+                            logger.info(f"이중 체크: 포인트 타입 확인, chart_name을 main으로 설정, 최종 설정: {chart_config_for_field}")
+                        else:
+                            logger.info(f"이중 체크: 필드 {field}의 타입은 {config_type}, 설정: {chart_config_for_field}")
+                    
+                    indicator_chart_config[display_key] = chart_config_for_field
+                    logger.info(f"저장: indicator_chart_config[{display_key}] = {indicator_chart_config[display_key]}")
                         
                 except Exception as e:
                     logger.warning(f"지표 {display_key} (컬럼: {column_name}) 값 추출 실패: {e}")
+                    # 예외 발생 시에도 기본 chart_config는 생성
+                    try:
+                        # 먼저 기존 chart_config에서 타입 확인 시도
+                        chart_type = "line"
+                        if indicator_chart_config_raw and isinstance(indicator_chart_config_raw, dict) and field in indicator_chart_config_raw:
+                            existing_config = indicator_chart_config_raw[field]
+                            if isinstance(existing_config, dict) and "type" in existing_config:
+                                chart_type = existing_config["type"]
+                        
+                        from apps.api.utils.chart_utils import generate_color_from_field
+                        chart_name = "main"
+                        if classify_indicator_display_type(indicator_type) == "oscillator" and chart_type != "point":
+                            chart_name = indicator_type
+                        # 포인트 타입은 항상 main 차트에만
+                        if chart_type == "point":
+                            chart_name = "main"
+                        
+                        default_config = {
+                            "chart_name": chart_name,
+                            "type": chart_type,
+                            "properties": {
+                                "color": generate_color_from_field(display_key),
+                                "lineWidth": 1,
+                                "lineStyle": 0,
+                                "visible": True
+                            }
+                        }
+                        indicator_chart_config[display_key] = default_config
+                        logger.debug(f"예외 발생 후 기본 chart_config 생성: {display_key} -> {default_config}")
+                    except Exception as config_error:
+                        logger.error(f"기본 chart_config 생성 실패: {config_error}")
         
         # 거래 정보
         trade_info = {
@@ -782,10 +895,17 @@ async def get_trade_chart_data(run_id: int, trade_id: int):
             ]
         }
         
+        # 디버깅: indicator_chart_config 확인
+        logger.info(f"indicator_chart_config 키: {list(indicator_chart_config.keys())}")
+        logger.info(f"indicators_data 키: {list(indicators_data.keys())}")
+        for key, config in indicator_chart_config.items():
+            logger.debug(f"  {key}: {config}")
+        
         return ChartDataResponse(
             bars=chart_bars,
             indicators=indicators_data,
             indicator_types=indicator_types,
+            indicator_chart_config=indicator_chart_config,
             trade_info=trade_info
         )
         

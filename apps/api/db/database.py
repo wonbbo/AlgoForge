@@ -52,7 +52,7 @@ class Database:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         
         # 스키마 파일 경로 찾기
-        # apps/api/db/database.py -> AlgoForge/db/schema.sql
+        # apps/api/db/database.py -> algoforge/db/schema.sql
         current_file = Path(__file__).resolve()
         project_root = current_file.parent.parent.parent.parent
         schema_path = project_root / 'db' / 'schema.sql'

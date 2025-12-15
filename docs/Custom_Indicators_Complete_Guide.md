@@ -21,13 +21,13 @@ graph TB
 
 ### Backend API 서버
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -m uvicorn apps.api.main:app --reload --port 6000
 ```
 
 ### Frontend 개발 서버
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge\apps\web
+cd /home/wonbbo/algoforge\apps\web
 pnpm dev
 ```
 
@@ -353,7 +353,7 @@ python -c "import sqlite3; conn = sqlite3.connect('db/algoforge.db'); cursor = c
 
 ```bash
 # 1. 서버 시작
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 start_api_server.bat  # 또는 python -m uvicorn ...
 
 # 새 터미널
@@ -373,7 +373,7 @@ pnpm dev
 
 ### CLI로 확인
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -c "import sqlite3; conn = sqlite3.connect('db/algoforge.db'); cursor = conn.execute('SELECT name, type, implementation_type FROM indicators'); [print(f\"{row[0]:20s} | {row[1]:20s} | {row[2]}\") for row in cursor.fetchall()]"
 ```
 

@@ -26,10 +26,15 @@ import {
   TrendingUp,
   Activity,
   BarChart3,
-  Volume2
+  Volume2,
+  Plus,
+  Settings
 } from 'lucide-react'
 import { indicatorApi } from '@/lib/api-client'
-import type { Indicator, IndicatorUpdate, CodeValidationResult } from '@/lib/types'
+import type { Indicator, IndicatorUpdate, CodeValidationResult, ChartSeriesConfig } from '@/lib/types'
+import { ChartConfigModal } from './components/ChartConfigModal'
+import { ChartTypePreview } from './components/ChartTypePreview'
+import { generateHexColorFromField } from '@/lib/chart-utils'
 
 export default function IndicatorDetailPage() {
   const router = useRouter()
@@ -43,6 +48,9 @@ export default function IndicatorDetailPage() {
   // 수정 모드
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<IndicatorUpdate>({})
+  const [outputFields, setOutputFields] = useState<string[]>([])
+  const [chartConfigModalOpen, setChartConfigModalOpen] = useState(false)
+  const [editingField, setEditingField] = useState<string>('')
   const [validationResult, setValidationResult] = useState<CodeValidationResult | null>(null)
   const [isValidating, setIsValidating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -53,18 +61,57 @@ export default function IndicatorDetailPage() {
     
     try {
       const data = await indicatorApi.get(indicatorType)
+      console.log('지표 조회 - API 응답:', {
+        type: data.type,
+        chart_config: data.chart_config,
+        output_fields: data.output_fields
+      })
       setIndicator(data)
       
       // 수정 데이터 초기화
       if (data.implementation_type === 'custom') {
+        const outputFieldsList = data.output_fields || []
+        // chart_config가 없거나 불완전한 경우 기본값 생성
+        const finalChartConfig: Record<string, ChartSeriesConfig> = {}
+        
+        outputFieldsList.forEach(field => {
+          if (!data.chart_config?.[field]) {
+            // chart_config가 없으면 기본값 생성
+            finalChartConfig[field] = {
+              chart_name: 'main',
+              type: 'line',
+              properties: {
+                color: generateHexColorFromField(field),
+                lineWidth: 1,
+                lineStyle: 0,
+                visible: true
+              }
+            }
+          } else {
+            // 기존 chart_config가 있으면 사용하되 visible 필드 확인 및 보정
+            const existingConfig = data.chart_config[field]
+            finalChartConfig[field] = {
+              ...existingConfig,
+              properties: {
+                ...existingConfig.properties,
+                visible: existingConfig.properties?.visible !== undefined 
+                  ? existingConfig.properties.visible 
+                  : true
+              }
+            }
+          }
+        })
+        
         setEditData({
           name: data.name,
           description: data.description,
           category: data.category,
           code: data.code,  // 코드 포함
           params_schema: data.params_schema,
-          output_fields: data.output_fields,
+          output_fields: outputFieldsList,
+          chart_config: finalChartConfig,
         })
+        setOutputFields(outputFieldsList)
       }
     } catch (err: any) {
       console.error('지표 조회 실패:', err)
@@ -75,8 +122,18 @@ export default function IndicatorDetailPage() {
   }, [indicatorType])
   
   useEffect(() => {
+    let isMounted = true
+    
     // 지표 타입이 변경될 때마다 재조회
-    fetchIndicator()
+    const loadData = async () => {
+      await fetchIndicator()
+    }
+    
+    loadData()
+    
+    return () => {
+      isMounted = false
+    }
   }, [fetchIndicator])
   
   const getCategoryIcon = (category: string) => {
@@ -86,6 +143,71 @@ export default function IndicatorDetailPage() {
       case 'volatility': return BarChart3
       case 'volume': return Volume2
       default: return Activity
+    }
+  }
+  
+  // 수정 모드 진입 시 데이터 초기화
+  const handleEditClick = async () => {
+    if (!indicator || indicator.implementation_type !== 'custom') {
+      return
+    }
+    
+    // 최신 데이터를 가져와서 사용
+    try {
+      const latestData = await indicatorApi.get(indicatorType)
+      console.log('수정 모드 진입 - 최신 데이터:', {
+        type: latestData.type,
+        chart_config: latestData.chart_config,
+        output_fields: latestData.output_fields
+      })
+      
+      const outputFieldsList = latestData.output_fields || []
+      // chart_config가 없거나 불완전한 경우 기본값 생성
+      const defaultChartConfig: Record<string, ChartSeriesConfig> = {}
+      const finalChartConfig: Record<string, ChartSeriesConfig> = {}
+      
+      outputFieldsList.forEach(field => {
+        if (!latestData.chart_config?.[field]) {
+          // chart_config가 없으면 기본값 생성
+          finalChartConfig[field] = {
+            chart_name: 'main',
+            type: 'line',
+            properties: {
+              color: generateHexColorFromField(field),
+              lineWidth: 1,
+              lineStyle: 0,
+              visible: true
+            }
+          }
+        } else {
+          // 기존 chart_config가 있으면 사용하되 visible 필드 확인 및 보정
+          const existingConfig = latestData.chart_config[field]
+          finalChartConfig[field] = {
+            ...existingConfig,
+            properties: {
+              ...existingConfig.properties,
+              visible: existingConfig.properties?.visible !== undefined 
+                ? existingConfig.properties.visible 
+                : true
+            }
+          }
+        }
+      })
+      
+      setEditData({
+        name: latestData.name,
+        description: latestData.description,
+        category: latestData.category,
+        code: latestData.code,
+        params_schema: latestData.params_schema,
+        output_fields: outputFieldsList,
+        chart_config: finalChartConfig,
+      })
+      setOutputFields(outputFieldsList)
+      setIsEditing(true)
+    } catch (err: any) {
+      console.error('수정 모드 진입 실패:', err)
+      alert(`데이터를 불러오는데 실패했습니다: ${err.message}`)
     }
   }
   
@@ -136,7 +258,7 @@ export default function IndicatorDetailPage() {
     }
     
     // output_fields 검증
-    if (editData.output_fields && editData.output_fields.length === 0) {
+    if (outputFields.length === 0) {
       alert('최소 하나의 출력 필드가 필요합니다')
       return
     }
@@ -144,11 +266,19 @@ export default function IndicatorDetailPage() {
     setIsSaving(true)
     
     try {
-      const updated = await indicatorApi.update(indicatorType, editData)
+      const updated = await indicatorApi.update(indicatorType, {
+        ...editData,
+        output_fields: outputFields,
+        chart_config: editData.chart_config
+      })
+      // 저장 후 최신 데이터로 업데이트
       setIndicator(updated)
       setIsEditing(false)
       setEditData({})
+      setOutputFields([])
       setValidationResult(null)
+      // 저장 후 데이터 다시 로드하여 최신 상태 유지
+      await fetchIndicator()
     } catch (err: any) {
       alert(`수정 실패: ${err.message}`)
     } finally {
@@ -223,7 +353,7 @@ export default function IndicatorDetailPage() {
           <div className="flex gap-2">
             {!isEditing ? (
               <>
-                <Button variant="outline" onClick={() => setIsEditing(true)}>
+                <Button variant="outline" onClick={handleEditClick}>
                   <Edit className="w-4 h-4 mr-2" />
                   수정
                 </Button>
@@ -237,6 +367,7 @@ export default function IndicatorDetailPage() {
                 <Button variant="outline" onClick={() => {
                   setIsEditing(false)
                   setEditData({})
+                  setOutputFields([])
                   setValidationResult(null)
                 }}>
                   <X className="w-4 h-4 mr-2" />
@@ -326,19 +457,144 @@ export default function IndicatorDetailPage() {
           {isEditing ? (
             <>
               <div>
-                <Label>출력 필드</Label>
-                <Input
-                  value={editData.output_fields?.join(', ') || ''}
-                  onChange={e => {
-                    const fields = e.target.value.split(',').map(f => f.trim()).filter(f => f)
-                    setEditData({...editData, output_fields: fields})
-                  }}
-                  placeholder="main, signal, histogram (쉼표로 구분)"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  쉼표(,)로 구분하여 입력하세요. 예: main, signal, histogram
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>출력 필드</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newField = `field_${Date.now()}`
+                      setOutputFields([...outputFields, newField])
+                      // chart_config가 없을 경우 빈 객체로 초기화
+                      const newConfig = { ...(editData.chart_config || {}) }
+                      newConfig[newField] = {
+                        chart_name: 'main',
+                        type: 'line',
+                        properties: {
+                          color: generateHexColorFromField(newField),
+                          lineWidth: 1,
+                          lineStyle: 0,
+                          visible: true
+                        }
+                      }
+                      setEditData({
+                        ...editData,
+                        chart_config: newConfig
+                      })
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    추가
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {outputFields.map((field, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
+                      <Input
+                        value={field}
+                        onChange={e => {
+                          const newFields = [...outputFields]
+                          const oldField = newFields[index]
+                          newFields[index] = e.target.value
+                          setOutputFields(newFields)
+                          
+                          // chart_config 키도 업데이트
+                          if (oldField !== e.target.value && editData.chart_config) {
+                            const newConfig = { ...editData.chart_config }
+                            if (newConfig[oldField]) {
+                              // 필드명이 변경되면 색상도 재생성
+                              const existingConfig = newConfig[oldField]
+                              newConfig[e.target.value] = {
+                                ...existingConfig,
+                                properties: {
+                                  ...existingConfig.properties,
+                                  color: generateHexColorFromField(e.target.value)
+                                }
+                              }
+                              delete newConfig[oldField]
+                              setEditData({
+                                ...editData,
+                                chart_config: newConfig
+                              })
+                            } else {
+                              // 기존 설정이 없으면 새로 생성
+                              newConfig[e.target.value] = {
+                                chart_name: 'main',
+                                type: 'line',
+                                properties: {
+                                  color: generateHexColorFromField(e.target.value),
+                                  lineWidth: 2,
+                                  lineStyle: 0
+                                }
+                              }
+                              setEditData({
+                                ...editData,
+                                chart_config: newConfig
+                              })
+                            }
+                          }
+                        }}
+                        placeholder="필드명 입력"
+                        className="flex-1"
+                      />
+                      <ChartTypePreview config={editData.chart_config?.[field] || null} />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingField(field)
+                          setChartConfigModalOpen(true)
+                        }}
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        설정
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newFields = outputFields.filter((_, i) => i !== index)
+                          setOutputFields(newFields)
+                          if (editData.chart_config) {
+                            const newConfig = { ...editData.chart_config }
+                            delete newConfig[field]
+                            setEditData({
+                              ...editData,
+                              chart_config: newConfig
+                            })
+                          }
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {outputFields.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      출력 필드가 없습니다. 추가 버튼을 클릭하여 필드를 추가하세요.
+                    </p>
+                  )}
+                </div>
               </div>
+              
+              <ChartConfigModal
+                open={chartConfigModalOpen}
+                onOpenChange={setChartConfigModalOpen}
+                field={editingField}
+                config={editData.chart_config?.[editingField] || null}
+                onSave={(field, config) => {
+                  // chart_config가 없을 경우 빈 객체로 초기화
+                  const newConfig = { ...(editData.chart_config || {}) }
+                  newConfig[field] = config
+                  setEditData({
+                    ...editData,
+                    chart_config: newConfig
+                  })
+                }}
+              />
               
               <div>
                 <Label>파라미터 스키마</Label>

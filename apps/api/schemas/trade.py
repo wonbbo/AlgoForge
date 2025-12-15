@@ -57,8 +57,11 @@ class BarData(BaseModel):
 
 class ChartDataResponse(BaseModel):
     """차트 데이터 응답 스키마"""
+    model_config = ConfigDict(from_attributes=True)
+    
     bars: List[BarData]
     indicators: Dict[str, List[float]]  # indicator_id -> 값 배열
     indicator_types: Dict[str, str]  # indicator_id -> "overlay" | "oscillator"
+    indicator_chart_config: Dict[str, Dict[str, Any]]  # indicator_key -> {chart_name, type, properties}
     trade_info: Dict[str, Any]  # 거래 정보 (진입/청산 시점 등)
 

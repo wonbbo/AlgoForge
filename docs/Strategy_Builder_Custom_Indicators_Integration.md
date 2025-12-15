@@ -195,7 +195,7 @@ const valueType = typeof defaultValue; // 'number' | 'string' | ...
 
 **해결**:
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -m uvicorn apps.api.main:app --reload --port 6000
 ```
 

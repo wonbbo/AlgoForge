@@ -24,6 +24,7 @@ from apps.api.utils.code_validator import (
     validate_indicator_code_simple
 )
 from apps.api.utils.responses import success_response, error_response
+from apps.api.utils.chart_utils import generate_color_from_field
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -69,6 +70,13 @@ def list_indicators(
     # 응답 생성
     indicators = []
     for row in rows:
+        chart_config = None
+        if len(row) > 11 and row[11]:  # chart_config 필드가 있고 값이 있으면 (인덱스 11)
+            try:
+                chart_config = json.loads(row[11])
+            except (json.JSONDecodeError, TypeError):
+                chart_config = None
+        
         indicators.append(
             IndicatorResponse(
                 indicator_id=row[0],
@@ -80,6 +88,7 @@ def list_indicators(
                 code=row[6],  # code 필드 포함
                 params_schema=row[7],
                 output_fields=json.loads(row[8]),
+                chart_config=chart_config,
                 created_at=row[9]
             )
         )
@@ -116,6 +125,13 @@ def get_indicator(indicator_type: str):
             detail=f"지표를 찾을 수 없습니다: {indicator_type}"
         )
     
+    chart_config = None
+    if len(row) > 11 and row[11]:  # chart_config 필드가 있고 값이 있으면 (인덱스 11)
+        try:
+            chart_config = json.loads(row[11])
+        except (json.JSONDecodeError, TypeError):
+            chart_config = None
+    
     return IndicatorResponse(
         indicator_id=row[0],
         name=row[1],
@@ -126,6 +142,7 @@ def get_indicator(indicator_type: str):
         code=row[6],  # code 필드 포함
         params_schema=row[7],
         output_fields=json.loads(row[8]),
+        chart_config=chart_config,
         created_at=row[9]
     )
 
@@ -180,13 +197,25 @@ def register_custom_indicator(indicator: CustomIndicatorCreate):
     # 4. 등록
     now = int(time.time())
     
+    # chart_config JSON 변환
+    chart_config_json = None
+    if indicator.chart_config:
+        try:
+            chart_config_json = json.dumps(indicator.chart_config)
+            logger.info(f"chart_config 저장: {indicator.type} -> {chart_config_json}")
+        except (TypeError, ValueError) as e:
+            logger.warning(f"chart_config JSON 변환 실패: {indicator.type}, {e}")
+            chart_config_json = None
+    else:
+        logger.info(f"chart_config가 없음: {indicator.type}")
+    
     with db.get_connection() as conn:
         cursor = conn.execute(
             """
             INSERT INTO indicators 
             (name, type, description, category, implementation_type, code, 
-             params_schema, output_fields, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 'custom', ?, ?, ?, ?, ?)
+             params_schema, output_fields, chart_config, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'custom', ?, ?, ?, ?, ?, ?)
             """,
             (
                 indicator.name,
@@ -196,12 +225,25 @@ def register_custom_indicator(indicator: CustomIndicatorCreate):
                 indicator.code,
                 indicator.params_schema,
                 json.dumps(indicator.output_fields),
+                chart_config_json,
                 now,
                 now
             )
         )
         conn.commit()
         indicator_id = cursor.lastrowid
+    
+    # 저장 확인
+    with db.get_connection() as conn:
+        cursor = conn.execute(
+            "SELECT chart_config FROM indicators WHERE indicator_id = ?",
+            (indicator_id,)
+        )
+        saved_config = cursor.fetchone()
+        if saved_config:
+            logger.info(f"저장된 chart_config 확인: {indicator.type} -> {saved_config[0]}")
+        else:
+            logger.warning(f"저장된 chart_config를 찾을 수 없음: {indicator.type}")
     
     logger.info(f"커스텀 지표 등록 완료: {indicator.type} (ID: {indicator_id})")
     
@@ -301,6 +343,18 @@ def update_custom_indicator(indicator_type: str, update_data: CustomIndicatorUpd
     if update_data.output_fields is not None:
         update_fields.append("output_fields = ?")
         update_values.append(json.dumps(update_data.output_fields))
+    
+    if update_data.chart_config is not None:
+        # chart_config JSON 검증
+        try:
+            chart_config_json = json.dumps(update_data.chart_config)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"chart_config가 유효한 형식이 아닙니다: {str(e)}"
+            )
+        update_fields.append("chart_config = ?")
+        update_values.append(chart_config_json)
     
     if not update_fields:
         raise HTTPException(

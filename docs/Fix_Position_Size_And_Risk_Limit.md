@@ -303,7 +303,7 @@ position_size_rounded = 1 (최소값 보장)
 ### 1. 마이그레이션 확인
 
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python db/apply_balance_migration.py
 ```
 

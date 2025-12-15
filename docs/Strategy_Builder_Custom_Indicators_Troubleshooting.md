@@ -38,7 +38,7 @@ curl http://localhost:6000/api/indicators/
 ### 2. 데이터베이스 확인
 
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -c "import sqlite3; conn = sqlite3.connect('db/algoforge.db'); cursor = conn.execute('SELECT name, type, implementation_type FROM indicators'); [print(f'{row[0]:20s} | {row[1]:20s} | {row[2]}') for row in cursor.fetchall()]"
 ```
 
@@ -75,7 +75,7 @@ CustomVolume         | custom_volume        | custom
 #### Step 1: 커스텀 지표 등록
 ```bash
 # 1. API 서버 시작
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -m uvicorn apps.api.main:app --reload --port 6000
 
 # 2. Frontend 서버 시작 (다른 터미널)

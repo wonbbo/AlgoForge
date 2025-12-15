@@ -390,7 +390,7 @@ if atr_value <= 0:
 
 ### Backend 테스트
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python tests\test_atr_stop_loss.py
 ```
 

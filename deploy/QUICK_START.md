@@ -37,7 +37,7 @@ sudo mkdir -p /var/www/algoforge
 sudo chown $USER:$USER /var/www/algoforge
 
 # 코드 업로드 (로컬에서)
-scp -r /path/to/AlgoForge/* user@server:/var/www/algoforge/
+scp -r /path/to/algoforge/* user@server:/var/www/algoforge/
 
 # 또는 Git (서버에서)
 cd /var/www/algoforge

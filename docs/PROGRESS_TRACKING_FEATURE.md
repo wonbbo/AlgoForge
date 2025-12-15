@@ -104,7 +104,7 @@ Run 목록 테이블에 진행률 모니터 통합:
 ### 1. 마이그레이션 적용
 
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python db/apply_migration.py
 ```
 

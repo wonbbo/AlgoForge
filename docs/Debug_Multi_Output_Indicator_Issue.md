@@ -165,7 +165,7 @@ fetch('http://localhost:6000/api/indicators/')
 
 **확인**:
 ```bash
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -m apps.api.db.check_indicators
 ```
 

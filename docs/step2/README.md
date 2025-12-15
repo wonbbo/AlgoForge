@@ -360,7 +360,7 @@ http://localhost:5001/strategies/builder
 ## 📁 파일 구조
 
 ```
-AlgoForge/
+algoforge/
 ├─ apps/web/
 │  ├─ app/
 │  │  ├─ layout.tsx                          # Toaster 추가

@@ -145,6 +145,9 @@ class RiskManager:
                 position_size = 1
         
         # 반올림 후 레버리지 제약 재확인 (반올림으로 인한 초과 방지)
+        # 정수 레버리지만 사용 가능하므로, 실제 사용 레버리지 기준으로 포지션 크기 조정 또는 레버리지 상향
+        actual_leverage = None  # 위에서 계산된 실제 사용 레버리지 (나중에 재사용)
+        
         if position_size > 0 and self.leverage_brackets:
             from engine.utils.leverage_loader import get_max_leverage_for_notional
             import math
@@ -152,38 +155,119 @@ class RiskManager:
             # 반올림된 포지션의 명목가치
             notional_rounded = position_size * entry_price
             
-            # 해당 명목가치의 최대 레버리지
-            max_lev = get_max_leverage_for_notional(self.leverage_brackets, notional_rounded)
-            max_lev = int(max_lev)
+            # 실제 사용할 레버리지 계산 (정수, 내림 처리)
+            # 예: 명목가치 146,575 / 잔고 42,111 = 3.48 -> 3x
+            calculated_leverage_raw = notional_rounded / self.current_balance
+            calculated_leverage = int(calculated_leverage_raw)  # 정수 레버리지 (내림)
             
-            # 최대 허용 명목가치
-            max_allowed_notional = self.current_balance * max_lev
+            # 최소 1x 레버리지
+            if calculated_leverage < 1:
+                calculated_leverage = 1
             
-            # 반올림된 명목가치가 한도를 초과하면 내림 적용
+            # 반올림된 명목가치에 해당하는 bracket의 최대 레버리지 조회
+            max_lev_raw = get_max_leverage_for_notional(self.leverage_brackets, notional_rounded)
+            max_lev = int(max_lev_raw)  # bracket의 최대 레버리지 (정수)
+            
+            # 실제 사용 레버리지가 bracket의 최대 레버리지를 초과할 수 없음
+            actual_leverage = min(calculated_leverage, max_lev)
+            
+            # 실제 사용 레버리지로 확보 가능한 최대 명목가치
+            # 공식: max_allowed_notional = current_balance × 실제_사용_레버리지
+            max_allowed_notional = self.current_balance * actual_leverage
+            
+            # 반올림된 명목가치가 실제 사용 레버리지로 확보 가능한 금액을 초과하면 조정
             if notional_rounded > max_allowed_notional:
-                # 내림으로 재계산
-                position_size = math.floor(position_size_raw)
+                # 먼저 레버리지를 올려서 허용 가능한 명목가치를 늘림 (bracket의 최대 레버리지까지)
+                # 예: 3x로 부족하면 4x, 5x... 최대 bracket의 최대 레버리지까지 시도
+                for test_leverage in range(actual_leverage + 1, max_lev + 1):
+                    test_max_notional = self.current_balance * test_leverage
+                    if notional_rounded <= test_max_notional:
+                        # 이 레버리지로 가능하므로 사용
+                        actual_leverage = test_leverage
+                        max_allowed_notional = test_max_notional
+                        break
                 
-                # 내림 후에도 초과하는지 재확인 (안전장치)
-                notional_floored = position_size * entry_price
-                if notional_floored > max_allowed_notional:
-                    # 여전히 초과하면 최대 가능 포지션으로 설정
-                    position_size = math.floor(max_allowed_notional / entry_price)
+                # 레버리지를 올려도 부족하면 포지션 크기를 줄임
+                if notional_rounded > max_allowed_notional:
+                    # 내림으로 재계산
+                    position_size = math.floor(position_size_raw)
+                    
+                    # 내림 후 명목가치 재계산
+                    notional_floored = position_size * entry_price
+                    
+                    # 내림 후에도 초과하는지 재확인
+                    if notional_floored > max_allowed_notional:
+                        # 최대 가능 포지션 크기로 설정 (실제 사용 레버리지로 확보 가능한 금액 안쪽)
+                        position_size = math.floor(max_allowed_notional / entry_price)
+                        
+                        # 포지션 크기가 0이 되는 경우 방지
+                        if position_size == 0:
+                            # 1 계약의 명목가치로 최대 레버리지 재확인
+                            notional_for_one = 1.0 * entry_price
+                            max_lev_one = get_max_leverage_for_notional(self.leverage_brackets, notional_for_one)
+                            max_lev_one = int(max_lev_one)
+                            max_allowed_one = self.current_balance * max_lev_one
+                            
+                            # 1 계약이 가능하면 허용
+                            if notional_for_one <= max_allowed_one:
+                                position_size = 1
+                                # 1 계약의 명목가치에 맞는 레버리지 재계산
+                                actual_leverage = int(notional_for_one / self.current_balance)
+                                if actual_leverage < 1:
+                                    actual_leverage = 1
+                                actual_leverage = min(actual_leverage, max_lev_one)
+                            else:
+                                # 1 계약도 불가능하면 레버리지를 올려서 시도
+                                for test_leverage in range(1, max_lev_one + 1):
+                                    test_max_notional = self.current_balance * test_leverage
+                                    if notional_for_one <= test_max_notional:
+                                        position_size = 1
+                                        actual_leverage = test_leverage
+                                        break
+                        else:
+                            # 포지션 크기 조정 후 명목가치와 레버리지 재계산
+                            notional_adjusted = position_size * entry_price
+                            calculated_leverage_adjusted = int(notional_adjusted / self.current_balance)
+                            if calculated_leverage_adjusted < 1:
+                                calculated_leverage_adjusted = 1
+                            max_lev_adjusted = get_max_leverage_for_notional(self.leverage_brackets, notional_adjusted)
+                            max_lev_adjusted = int(max_lev_adjusted)
+                            actual_leverage = min(calculated_leverage_adjusted, max_lev_adjusted)
         
         # 실제 사용된 레버리지 계산
-        # leverage = 명목가치 / 증거금
-        # 증거금은 현재 잔고의 일부를 사용하므로, 잔고 대비 명목가치 비율로 계산
+        # 위에서 이미 계산된 actual_leverage를 사용하거나, 새로 계산
         notional_value = position_size * entry_price
         
         # 잔고가 0 이하인 경우 레버리지를 1로 설정 (예외 처리)
         if self.current_balance <= 0:
             leverage = 1
         else:
-            # 레버리지는 정수로 반올림
-            leverage = round(notional_value / self.current_balance)
-            # 최소 1x 레버리지
-            if leverage < 1:
-                leverage = 1
+            # 위에서 계산된 actual_leverage가 있으면 사용
+            if actual_leverage is not None:
+                leverage = actual_leverage
+            elif self.leverage_brackets:
+                # 새로 계산
+                calculated_leverage_raw = notional_value / self.current_balance
+                calculated_leverage = int(calculated_leverage_raw)
+                
+                # 최소 1x 레버리지
+                if calculated_leverage < 1:
+                    calculated_leverage = 1
+                
+                # bracket의 최대 레버리지 조회
+                max_lev_raw = get_max_leverage_for_notional(self.leverage_brackets, notional_value)
+                max_lev = int(max_lev_raw)
+                
+                # bracket의 최대 레버리지를 초과할 수 없음
+                leverage = min(calculated_leverage, max_lev)
+            else:
+                # 레버리지 bracket이 없는 경우 정수로 내림 처리
+                calculated_leverage = notional_value / self.current_balance
+                leverage = int(calculated_leverage)
+                
+                # 최소 1x 레버리지
+                if leverage < 1:
+                    leverage = 1
         
         if return_leverage:
             return float(position_size), risk, float(leverage)

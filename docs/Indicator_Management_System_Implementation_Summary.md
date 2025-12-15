@@ -39,7 +39,7 @@ AlgoForge 백테스트 시스템에 **지표 관리 시스템**을 성공적으�
 ## 파일 구조
 
 ```
-AlgoForge/
+algoforge/
 ├── db/
 │   ├── migrations/
 │   │   └── 002_add_indicators_table.sql       # 신규

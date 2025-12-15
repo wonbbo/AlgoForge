@@ -317,7 +317,7 @@ PRD/TRD 규칙 100% 준수
 #### 프로젝트 실행
 ```bash
 # 백엔드
-cd C:\Users\wonbbo\Workspace\Cursor\AlgoForge
+cd /home/wonbbo/algoforge
 python -m uvicorn apps.api.main:app --reload
 
 # 프론트엔드
