@@ -89,11 +89,16 @@ db/*.db-shm
 db/*.db-wal
 
 # 데이터셋 (실제 데이터)
+# datasets 폴더 및 모든 하위 디렉토리의 CSV, JSON 파일 제외
+datasets/**/*.csv
+datasets/**/*.json
 datasets/*.csv
 datasets/*.json
 # 단, 테스트 데이터는 포함
 !tests/fixtures/*.csv
 !tests/fixtures/*.json
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.json
 
 # OS
 .DS_Store
