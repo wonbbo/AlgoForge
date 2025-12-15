@@ -308,18 +308,18 @@ export default function IndicatorDetailPage() {
                   <option value="volume">Volume (거래량)</option>
                 </select>
               ) : (
-                <p className="text-sm mt-1">
+                <div className="text-sm mt-1">
                   <Badge variant="outline">{indicator.category}</Badge>
-                </p>
+                </div>
               )}
             </div>
             <div className="flex-1">
               <Label>타입</Label>
-              <p className="text-sm mt-1">
+              <div className="text-sm mt-1">
                 <Badge variant={isBuiltin ? 'default' : 'secondary'}>
                   {isBuiltin ? '내장' : '커스텀'}
                 </Badge>
-              </p>
+              </div>
             </div>
           </div>
           

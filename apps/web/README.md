@@ -148,11 +148,7 @@ pnpm start
 
 ## 환경 변수
 
-`.env.local` 파일 생성:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:6000
-```
+현재 환경 변수 설정이 필요하지 않습니다. API 호출은 Next.js의 rewrites 기능을 통해 상대 경로(`/api/...`)로 처리됩니다.
 
 ## 주의사항
 

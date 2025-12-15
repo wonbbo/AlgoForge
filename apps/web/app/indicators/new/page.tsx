@@ -40,14 +40,29 @@ export default function NewIndicatorPage() {
         params: 파라미터 딕셔너리
     
     Returns:
-        pd.Series: 단일 값
-        또는
-        Dict[str, pd.Series]: 여러 값 (예: {'main': ..., 'signal': ...})
+        pd.Series 또는 Dict[str, pd.Series]:
+        - 단일 값: pd.Series 반환 (예: df['close'].rolling(window=period).mean())
+        - 여러 값: Dict[str, pd.Series] 반환 (예: {'main': ..., 'signal': ..., 'histogram': ...})
+        
+    중요: output_fields에 여러 필드가 있는 경우 반드시 Dict[str, pd.Series] 형태로 반환해야 합니다.
     """
+    import pandas as pd
+    
     period = params.get('period', 20)
     
-    # 예시: 단순 이동평균
-    return df['close'].rolling(window=period).mean().fillna(0)`,
+    # 예시 1: 단일 값 반환 (output_fields: ['main'])
+    # return df['close'].rolling(window=period).mean().fillna(0)
+    
+    # 예시 2: 여러 값 반환 (output_fields: ['main', 'signal', 'histogram'])
+    sma = df['close'].rolling(window=period).mean()
+    signal = sma.rolling(window=9).mean()
+    histogram = sma - signal
+    
+    return {
+        'main': sma.fillna(0),
+        'signal': signal.fillna(0),
+        'histogram': histogram.fillna(0)
+    }`,
     params_schema: '{"period": 20}',
     output_fields: ['main']
   })

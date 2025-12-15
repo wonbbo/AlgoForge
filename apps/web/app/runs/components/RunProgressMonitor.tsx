@@ -27,7 +27,8 @@ export function RunProgressMonitor({ runId, onComplete }: RunProgressMonitorProp
 
   const fetchProgress = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:6000/api/runs/${runId}`);
+      // 프론트에서 localhost로 직접 호출하지 않도록 상대 경로 사용
+      const response = await fetch(`/api/runs/${runId}`);
       if (!response.ok) {
         throw new Error("진행률 조회 실패");
       }

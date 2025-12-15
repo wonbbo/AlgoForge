@@ -42,7 +42,8 @@ API_HOST=0.0.0.0
 API_PORT=6000
 
 # Frontend 설정
-NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr/api
+# API 호출은 Next.js rewrites를 통해 상대 경로로 처리됩니다.
+# 필요시 next.config.js의 API_BASE_URL 환경변수를 설정하세요.
 
 # 데이터베이스 경로
 DATABASE_PATH=./db/algoforge.db
@@ -155,7 +156,8 @@ API_HOST=0.0.0.0
 API_PORT=6000
 
 # Frontend 설정
-NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr/api
+# API 호출은 Next.js rewrites를 통해 상대 경로로 처리됩니다.
+# 필요시 next.config.js의 API_BASE_URL 환경변수를 설정하세요.
 
 # 데이터베이스 경로
 DATABASE_PATH=./db/algoforge.db
@@ -317,7 +319,6 @@ Group=www-data
 WorkingDirectory=/var/www/algoforge/apps/web
 Environment="NODE_ENV=production"
 Environment="PORT=5001"
-Environment="NEXT_PUBLIC_API_URL=http://algoforge.wonbbo.kro.kr/api"
 ExecStart=/usr/bin/pnpm start
 Restart=always
 RestartSec=10

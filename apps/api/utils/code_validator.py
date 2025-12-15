@@ -106,7 +106,7 @@ def validate_indicator_code(code: str) -> Tuple[bool, str, List[str]]:
     
     # 5. import 문 검증
     imports = [node for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))]
-    
+
     for imp in imports:
         if isinstance(imp, ast.Import):
             for alias in imp.names:
@@ -125,6 +125,35 @@ def validate_indicator_code(code: str) -> Tuple[bool, str, List[str]]:
                         f"허용되지 않은 모듈 import: 'from {imp.module}'. "
                         f"허용된 모듈: {', '.join(ALLOWED_IMPORTS)}"
                     )
+    
+    # 6. return 문 검증 (리턴 타입 확인)
+    # 함수 내부의 모든 return 문을 찾아서 dict 형태인지 확인
+    return_statements = []
+    for node in ast.walk(func):
+        if isinstance(node, ast.Return) and node.value is not None:
+            return_statements.append(node.value)
+    
+    if return_statements:
+        # return 문이 있는 경우, dict 형태인지 확인
+        # 단일 Series도 허용되므로 dict 또는 단일 값 모두 허용
+        # 하지만 명확한 가이드를 위해 dict 형태를 권장
+        has_dict_return = False
+        has_single_return = False
+        
+        for ret_val in return_statements:
+            if isinstance(ret_val, ast.Dict):
+                has_dict_return = True
+            elif isinstance(ret_val, (ast.Name, ast.Attribute, ast.Call, ast.BinOp, ast.Subscript)):
+                # 단일 값 반환 (Series 등)
+                has_single_return = True
+        
+        # dict와 단일 값이 모두 있으면 경고 (일관성 없음)
+        if has_dict_return and has_single_return:
+            errors.append(
+                "함수 내에 dict 형태와 단일 값 형태의 return 문이 혼재되어 있습니다. "
+                "일관된 반환 형식을 사용해주세요: "
+                "단일 값은 pd.Series, 여러 값은 Dict[str, pd.Series] 형태로 반환해야 합니다."
+            )
     
     # 검증 결과 반환
     if errors:

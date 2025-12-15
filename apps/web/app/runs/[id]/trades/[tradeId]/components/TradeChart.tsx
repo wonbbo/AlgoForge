@@ -79,17 +79,17 @@ export function TradeChart({ chartData }: TradeChartProps) {
       })
 
       // 메인 차트와 oscillator 차트의 타임스케일 동기화
-      chart.timeScale().subscribeVisibleTimeRangeChange(() => {
+      chart.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
         // Cleanup 중이거나 oscChart가 없으면 무시
         if (isCleaningUp || !oscChart) return
-        
+
+        // lightweight-charts에서 timeRange가 null로 전달될 수 있으므로 방어 로직 추가
+        if (!timeRange) return
+
         try {
-          const timeRange = chart.timeScale().getVisibleRange()
-          if (timeRange) {
-            oscChart.timeScale().setVisibleRange(timeRange)
-          }
+          oscChart.timeScale().setVisibleRange(timeRange)
         } catch (error) {
-          // 타이밍 이슈로 인한 에러 무시
+          // 타이밍 이슈로 인한 에러 무시 (디버깅용 로그)
           console.debug('Chart sync error:', error)
         }
       })

@@ -94,9 +94,9 @@ sudo ./deploy/deploy.sh
 
 다른 포트나 도메인을 사용하려면 다음 파일들을 수정하세요:
 
-1. **env.example** - `NEXT_PUBLIC_API_URL` 수정
-2. **nginx-algoforge.conf** - `listen` 포트 및 `server_name` 수정
-3. **algoforge-web.service** - `NEXT_PUBLIC_API_URL` 환경 변수 수정
+1. **nginx-algoforge.conf** - `listen` 포트 및 `server_name` 수정
+2. **algoforge-web.service** - 필요시 환경 변수 수정
+3. **next.config.js** - 필요시 `API_BASE_URL` 환경 변수 설정
 
 ## 🆘 지원
 

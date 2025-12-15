@@ -245,7 +245,7 @@ Error: 서버와의 통신에 실패했습니다
 **해결**:
 1. Backend API 서버가 실행 중인지 확인 (`http://localhost:6000`)
 2. CORS 설정 확인 (`apps/api/main.py`)
-3. 환경 변수 확인 (`NEXT_PUBLIC_API_URL`)
+3. Next.js rewrites 설정 확인 (`apps/web/next.config.js`)
 
 ### 코드 검증 실패
 ```

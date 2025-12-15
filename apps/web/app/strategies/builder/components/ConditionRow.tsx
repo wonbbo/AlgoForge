@@ -123,21 +123,43 @@ export function ConditionRow({
             {indicators.map(ind => {
               // 해당 지표의 메타 정보 찾기
               const indicatorInfo = availableIndicators?.find(i => i.type === ind.type);
-              const outputFields = indicatorInfo?.output_fields || ['main'];
+              
+              // output_fields 처리: 배열이 아니거나 비어있으면 기본값 사용
+              let outputFields: string[] = ['main'];
+              if (indicatorInfo?.output_fields) {
+                if (Array.isArray(indicatorInfo.output_fields) && indicatorInfo.output_fields.length > 0) {
+                  outputFields = indicatorInfo.output_fields;
+                }
+              }
               
               // 디버깅 로그 (좌변) - 강화
               console.log(`[ConditionRow-좌변] ${ind.id} (${ind.type})`);
-              console.log('  → indicatorInfo:', indicatorInfo ? 'FOUND' : 'NOT FOUND');
-              console.log('  → outputFields:', outputFields, `(${outputFields.length}개)`);
+              console.log('  → indicatorInfo:', indicatorInfo ? {
+                type: indicatorInfo.type,
+                implementation_type: indicatorInfo.implementation_type,
+                output_fields: indicatorInfo.output_fields,
+                output_fields_type: typeof indicatorInfo.output_fields,
+                output_fields_isArray: Array.isArray(indicatorInfo.output_fields),
+                output_fields_length: indicatorInfo.output_fields?.length,
+                output_fields_content: JSON.stringify(indicatorInfo.output_fields)
+              } : 'NOT FOUND');
+              console.log('  → outputFields (최종):', outputFields, `(${outputFields.length}개)`, JSON.stringify(outputFields));
               console.log('  → availableIndicators 개수:', availableIndicators?.length || 0);
               
               // 모든 지표를 "지표.값" 형태로 표시
+              const isCustom = indicatorInfo?.implementation_type === 'custom';
+              
               return outputFields.map(field => {
                 // 표시명 생성 (항상 점 사용)
                 let displayLabel: string;
                 let storageValue: string;
                 
-                if (outputFields.length === 1 && field === 'main') {
+                if (isCustom) {
+                  // 커스텀 지표: 항상 지표명.필드명 형태
+                  displayLabel = `${ind.id}.${field}`;
+                  // 저장값은 점(.)으로 구분 (백엔드에서 _로 변환)
+                  storageValue = `${ind.id}.${field}`;
+                } else if (outputFields.length === 1 && field === 'main') {
                   // 단일 출력 (내장 지표): 지표 타입명으로 표시
                   displayLabel = `${ind.id}.${ind.type}`;
                   // 저장값은 점 없이 (백엔드 컬럼명과 일치)
@@ -223,21 +245,43 @@ export function ConditionRow({
             {indicators.map(ind => {
               // 해당 지표의 메타 정보 찾기
               const indicatorInfo = availableIndicators?.find(i => i.type === ind.type);
-              const outputFields = indicatorInfo?.output_fields || ['main'];
+              
+              // output_fields 처리: 배열이 아니거나 비어있으면 기본값 사용
+              let outputFields: string[] = ['main'];
+              if (indicatorInfo?.output_fields) {
+                if (Array.isArray(indicatorInfo.output_fields) && indicatorInfo.output_fields.length > 0) {
+                  outputFields = indicatorInfo.output_fields;
+                }
+              }
               
               // 디버깅 로그 (우변) - 강화
               console.log(`[ConditionRow-우변] ${ind.id} (${ind.type})`);
-              console.log('  → indicatorInfo:', indicatorInfo ? 'FOUND' : 'NOT FOUND');
-              console.log('  → outputFields:', outputFields, `(${outputFields.length}개)`);
+              console.log('  → indicatorInfo:', indicatorInfo ? {
+                type: indicatorInfo.type,
+                implementation_type: indicatorInfo.implementation_type,
+                output_fields: indicatorInfo.output_fields,
+                output_fields_type: typeof indicatorInfo.output_fields,
+                output_fields_isArray: Array.isArray(indicatorInfo.output_fields),
+                output_fields_length: indicatorInfo.output_fields?.length,
+                output_fields_content: JSON.stringify(indicatorInfo.output_fields)
+              } : 'NOT FOUND');
+              console.log('  → outputFields (최종):', outputFields, `(${outputFields.length}개)`, JSON.stringify(outputFields));
               console.log('  → availableIndicators 개수:', availableIndicators?.length || 0);
               
               // 모든 지표를 "지표.값" 형태로 표시
+              const isCustom = indicatorInfo?.implementation_type === 'custom';
+              
               return outputFields.map(field => {
                 // 표시명 생성 (항상 점 사용)
                 let displayLabel: string;
                 let storageValue: string;
                 
-                if (outputFields.length === 1 && field === 'main') {
+                if (isCustom) {
+                  // 커스텀 지표: 항상 지표명.필드명 형태
+                  displayLabel = `${ind.id}.${field}`;
+                  // 저장값은 점(.)으로 구분 (백엔드에서 _로 변환)
+                  storageValue = `${ind.id}.${field}`;
+                } else if (outputFields.length === 1 && field === 'main') {
                   // 단일 출력 (내장 지표): 지표 타입명으로 표시
                   displayLabel = `${ind.id}.${ind.type}`;
                   // 저장값은 점 없이 (백엔드 컬럼명과 일치)

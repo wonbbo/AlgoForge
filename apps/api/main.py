@@ -65,8 +65,8 @@ async def startup_event():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5001",  # Next.js 개발 서버
         "http://127.0.0.1:5001",
+        "http://localhost:5001",  # Next.js 개발 서버 (현재 포트)
         "http://algoforge.wonbbo.kro.kr",  # 프로덕션 서버
     ],
     allow_credentials=True,
