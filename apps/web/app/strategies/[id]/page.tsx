@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Copy, Download, Trash2, Calendar, Hash } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Trash2, Calendar, Hash, Edit } from 'lucide-react';
 import { strategyApi } from '@/lib/api-client';
 import type { Strategy } from '@/lib/types';
 
@@ -142,10 +142,22 @@ export default function StrategyDetailPage() {
           뒤로 가기
         </Button>
         
-        <Button variant="destructive" onClick={handleDelete}>
-          <Trash2 className="h-4 w-4 mr-2" />
-          삭제
-        </Button>
+        <div className="flex gap-2">
+          {/* 복제하여 편집 버튼 */}
+          <Button 
+            variant="outline" 
+            onClick={() => router.push(`/strategies/builder?source=${strategyId}`)}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            복제하여 편집
+          </Button>
+          
+          {/* 삭제 버튼 */}
+          <Button variant="destructive" onClick={handleDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            삭제
+          </Button>
+        </div>
       </div>
       
       {/* 기본 정보 */}

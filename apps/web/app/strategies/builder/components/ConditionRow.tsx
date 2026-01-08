@@ -191,15 +191,25 @@ export function ConditionRow({
         {/* 좌변이 숫자인 경우 입력 필드 */}
         {condition.left.type === 'number' && (
           <Input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={condition.left.value}
-            onChange={(e) => onChange({
-              ...condition,
-              left: { type: 'number', value: Number(e.target.value) }
-            })}
-            placeholder="숫자 입력"
+            onChange={(e) => {
+              const value = e.target.value;
+              // 유효한 숫자 형식만 허용 (음수, 소수점 포함, 입력 중간 상태도 허용)
+              // 예: "", "-", ".", "-.", "123", "-123", "1.5", "-1.5", "0.5", ".5"
+              if (/^-?\d*\.?\d*$/.test(value)) {
+                // 완전한 숫자면 number로 저장, 중간 상태면 문자열로 저장
+                const numValue = parseFloat(value);
+                const finalValue = isNaN(numValue) ? value : numValue;
+                onChange({
+                  ...condition,
+                  left: { type: 'number', value: finalValue }
+                });
+              }
+            }}
+            placeholder="숫자 입력 (예: -1.5)"
             className="h-8"
-            step="any"
           />
         )}
       </div>
@@ -313,15 +323,25 @@ export function ConditionRow({
         {/* 우변이 숫자인 경우 입력 필드 */}
         {condition.right.type === 'number' && (
           <Input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={condition.right.value}
-            onChange={(e) => onChange({
-              ...condition,
-              right: { type: 'number', value: Number(e.target.value) }
-            })}
-            placeholder="숫자 입력"
+            onChange={(e) => {
+              const value = e.target.value;
+              // 유효한 숫자 형식만 허용 (음수, 소수점 포함, 입력 중간 상태도 허용)
+              // 예: "", "-", ".", "-.", "123", "-123", "1.5", "-1.5", "0.5", ".5"
+              if (/^-?\d*\.?\d*$/.test(value)) {
+                // 완전한 숫자면 number로 저장, 중간 상태면 문자열로 저장
+                const numValue = parseFloat(value);
+                const finalValue = isNaN(numValue) ? value : numValue;
+                onChange({
+                  ...condition,
+                  right: { type: 'number', value: finalValue }
+                });
+              }
+            }}
+            placeholder="숫자 입력 (예: -1.5)"
             className="h-8"
-            step="any"
           />
         )}
       </div>
