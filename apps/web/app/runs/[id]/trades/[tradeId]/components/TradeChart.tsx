@@ -166,6 +166,7 @@ export function TradeChart({ chartData }: TradeChartProps) {
         width: container.clientWidth,
         height: chartName === 'main' ? 400 : 150,
         layout: {
+          attributionLogo: false,
           background: { type: ColorType.Solid, color: 'transparent' },
           textColor: '#666',
         },

@@ -88,6 +88,9 @@ class StrategyParser:
         
         새로운 DataFrame 기반 IndicatorCalculator를 사용하여
         모든 지표를 한 번에 계산하고 DataFrame에 컬럼으로 저장합니다.
+        
+        Raises:
+            RuntimeError: 지표 계산 실패 시 (커스텀 지표 에러 포함)
         """
         indicators = self.definition.get("indicators", [])
         
@@ -98,13 +101,19 @@ class StrategyParser:
                 logger.warning(f"지표 정의가 불완전합니다: {indicator}")
                 continue
             
-            logger.info(f"[전략 파싱] 지표 계산 중: id={indicator.get('id')}, type={indicator.get('type')}")
+            indicator_id = indicator.get('id')
+            indicator_type = indicator.get('type')
+            
+            logger.info(f"[전략 파싱] 지표 계산 중: id={indicator_id}, type={indicator_type}")
             
             # 새로운 API 사용: calculate_indicator()
             try:
                 self.indicator_calc.calculate_indicator(indicator)
             except Exception as e:
-                logger.error(f"지표 계산 실패: {indicator.get('id')}, {e}", exc_info=True)
+                # 커스텀 지표 에러 발생 시 상세 메시지와 함께 예외 전파
+                error_message = f"지표 계산 실패 - ID: '{indicator_id}', Type: '{indicator_type}', 에러: {str(e)}"
+                logger.error(error_message, exc_info=True)
+                raise RuntimeError(error_message) from e
         
         # 계산 완료 후 DataFrame 컬럼 목록 출력
         indicator_columns = [col for col in self.df.columns if col not in ['open', 'high', 'low', 'close', 'volume']]

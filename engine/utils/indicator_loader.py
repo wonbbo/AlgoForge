@@ -92,16 +92,17 @@ def _create_function_from_code(code: str) -> Callable:
         safe_namespace['ta'] = ta
         
         # 자주 사용하는 ta 모듈도 추가
-        from ta.trend import EMAIndicator, SMAIndicator, MACD
         from ta.momentum import RSIIndicator
         from ta.volatility import AverageTrueRange, BollingerBands
-        
+        from ta.trend import MACD, EMAIndicator, SMAIndicator, CCIIndicator
+
+        safe_namespace['MACD'] = MACD
+        safe_namespace['CCIIndicator'] = CCIIndicator
         safe_namespace['EMAIndicator'] = EMAIndicator
         safe_namespace['SMAIndicator'] = SMAIndicator
-        safe_namespace['MACD'] = MACD
         safe_namespace['RSIIndicator'] = RSIIndicator
-        safe_namespace['AverageTrueRange'] = AverageTrueRange
         safe_namespace['BollingerBands'] = BollingerBands
+        safe_namespace['AverageTrueRange'] = AverageTrueRange
         
     except ImportError:
         logger.warning("ta 라이브러리를 찾을 수 없습니다")
@@ -117,7 +118,7 @@ def _create_function_from_code(code: str) -> Callable:
         # 내장 함수나 import된 모듈 제외
         if callable(obj) and not name.startswith('_') and name not in [
             'pd', 'pandas', 'np', 'numpy', 'Dict', 'Any', 'ta',
-            'EMAIndicator', 'SMAIndicator', 'MACD', 'RSIIndicator',
+            'EMAIndicator', 'SMAIndicator', 'CCIIndicator', 'MACD', 'RSIIndicator',
             'AverageTrueRange', 'BollingerBands'
         ]:
             return obj

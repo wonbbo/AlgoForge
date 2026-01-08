@@ -25,6 +25,7 @@ export function DrawdownChart({ trades, initialBalance }: DrawdownChartProps) {
     // 차트 생성
     const chart = createChart(chartContainerRef.current, {
       layout: {
+        attributionLogo: false,
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#9ca3af',
       },

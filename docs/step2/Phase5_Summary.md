@@ -335,6 +335,7 @@ import { createChart, ColorType } from 'lightweight-charts'
 
 const chart = createChart(container, {
   layout: {
+    attributionLogo: false,
     background: { type: ColorType.Solid, color: 'transparent' },
   },
   width: 800,
