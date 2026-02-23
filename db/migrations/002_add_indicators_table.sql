@@ -37,5 +37,9 @@ VALUES
     
     ('ATR', 'atr', 'Average True Range - 평균 진폭', 'volatility', 'builtin', NULL,
      '{"period": 14}', '["main"]',
+     strftime('%s', 'now'), strftime('%s', 'now')),
+    
+    ('ADX', 'adx', 'Average Directional Index - 평균 방향성 지수', 'trend', 'builtin', NULL,
+     '{"period": 14}', '["main"]',
      strftime('%s', 'now'), strftime('%s', 'now'));
 

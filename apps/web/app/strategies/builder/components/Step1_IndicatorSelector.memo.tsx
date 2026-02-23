@@ -51,6 +51,13 @@ const INDICATOR_CATALOG = [
     category: 'Volatility',
     icon: BarChart3,
     defaultParams: { period: 14 }
+  },
+  {
+    type: 'adx',
+    name: 'ADX (Average Directional Index)',
+    category: 'Trend',
+    icon: TrendingUp,
+    defaultParams: { period: 14 }
   }
 ] as const;
 

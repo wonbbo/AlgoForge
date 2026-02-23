@@ -106,7 +106,8 @@ describe('Draft to JSON Conversion', () => {
           { id: 'ema_1', type: 'ema', params: { source: 'close', period: 12 } },
           { id: 'sma_1', type: 'sma', params: { source: 'close', period: 50 } },
           { id: 'rsi_1', type: 'rsi', params: { source: 'close', period: 14 } },
-          { id: 'atr_1', type: 'atr', params: { period: 14 } }
+          { id: 'atr_1', type: 'atr', params: { period: 14 } },
+          { id: 'adx_1', type: 'adx', params: { period: 14 } }
         ],
         entry: {
           long: {
@@ -128,11 +129,12 @@ describe('Draft to JSON Conversion', () => {
       
       const json = draftToStrategyJSON(draft);
       
-      expect(json.indicators.length).toBe(4);
+      expect(json.indicators.length).toBe(5);
       expect(json.indicators[0].type).toBe('ema');
       expect(json.indicators[1].type).toBe('sma');
       expect(json.indicators[2].type).toBe('rsi');
       expect(json.indicators[3].type).toBe('atr');
+      expect(json.indicators[4].type).toBe('adx');
     });
     
     test('지표 순서 유지', () => {
@@ -348,6 +350,84 @@ describe('Draft to JSON Conversion', () => {
       if ('atr_indicator_id' in json.stop_loss) {
         expect(json.stop_loss.atr_indicator_id).toBe('atr_1');
         expect(json.stop_loss.multiplier).toBe(2.5);
+      }
+    });
+    
+    test('Indicator Level SL 변환', () => {
+      const draft: StrategyDraft = {
+        name: 'Test Indicator Level SL',
+        description: '',
+        indicators: [
+          { id: 'ema_1', type: 'ema', params: { source: 'close', period: 12 } },
+          { id: 'sma_ch_1', type: 'sma_channel', params: { period: 20 } }
+        ],
+        entry: {
+          long: {
+            conditions: [
+              {
+                tempId: '1',
+                left: { type: 'indicator', value: 'ema_1' },
+                operator: '>',
+                right: { type: 'number', value: 100 }
+              }
+            ]
+          },
+          short: { conditions: [] }
+        },
+        stopLoss: {
+          type: 'indicator_level',
+          long_ref: 'sma_ch_1.low_sma_20',
+          short_ref: 'sma_ch_1.high_sma_20'
+        },
+        reverse: { enabled: false },
+        hook: { enabled: false }
+      };
+      
+      const json = draftToStrategyJSON(draft);
+      
+      expect(json.stop_loss.type).toBe('indicator_level');
+      if ('long_ref' in json.stop_loss) {
+        expect(json.stop_loss.long_ref).toBe('sma_ch_1.low_sma_20');
+        expect(json.stop_loss.short_ref).toBe('sma_ch_1.high_sma_20');
+      }
+    });
+    
+    test('Indicator Level SL 변환 - 단일 출력 지표', () => {
+      const draft: StrategyDraft = {
+        name: 'Test Single Output Indicator SL',
+        description: '',
+        indicators: [
+          { id: 'ema_1', type: 'ema', params: { source: 'close', period: 12 } },
+          { id: 'my_vwap', type: 'vwap', params: {} }
+        ],
+        entry: {
+          long: {
+            conditions: [
+              {
+                tempId: '1',
+                left: { type: 'indicator', value: 'ema_1' },
+                operator: '>',
+                right: { type: 'number', value: 100 }
+              }
+            ]
+          },
+          short: { conditions: [] }
+        },
+        stopLoss: {
+          type: 'indicator_level',
+          long_ref: 'my_vwap',
+          short_ref: 'my_vwap'
+        },
+        reverse: { enabled: false },
+        hook: { enabled: false }
+      };
+      
+      const json = draftToStrategyJSON(draft);
+      
+      expect(json.stop_loss.type).toBe('indicator_level');
+      if ('long_ref' in json.stop_loss) {
+        expect(json.stop_loss.long_ref).toBe('my_vwap');
+        expect(json.stop_loss.short_ref).toBe('my_vwap');
       }
     });
   });

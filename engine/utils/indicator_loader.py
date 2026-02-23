@@ -94,11 +94,12 @@ def _create_function_from_code(code: str) -> Callable:
         # 자주 사용하는 ta 모듈도 추가
         from ta.momentum import RSIIndicator
         from ta.volatility import AverageTrueRange, BollingerBands
-        from ta.trend import MACD, EMAIndicator, SMAIndicator, CCIIndicator
+        from ta.trend import MACD, EMAIndicator, SMAIndicator, CCIIndicator, ADXIndicator
 
         safe_namespace['MACD'] = MACD
         safe_namespace['CCIIndicator'] = CCIIndicator
         safe_namespace['EMAIndicator'] = EMAIndicator
+        safe_namespace['ADXIndicator'] = ADXIndicator
         safe_namespace['SMAIndicator'] = SMAIndicator
         safe_namespace['RSIIndicator'] = RSIIndicator
         safe_namespace['BollingerBands'] = BollingerBands
@@ -118,8 +119,7 @@ def _create_function_from_code(code: str) -> Callable:
         # 내장 함수나 import된 모듈 제외
         if callable(obj) and not name.startswith('_') and name not in [
             'pd', 'pandas', 'np', 'numpy', 'Dict', 'Any', 'ta',
-            'EMAIndicator', 'SMAIndicator', 'CCIIndicator', 'MACD', 'RSIIndicator',
-            'AverageTrueRange', 'BollingerBands'
+            'EMAIndicator', 'SMAIndicator', 'ADXIndicator', 'CCIIndicator', 'MACD', 'RSIIndicator', 'AverageTrueRange', 'BollingerBands',
         ]:
             return obj
     

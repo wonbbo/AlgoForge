@@ -10,12 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { 
   BarChart3, 
-  TrendingUp, 
+  TrendingUp,
+  LogOut,
   Shield, 
   Settings 
 } from 'lucide-react';
 import { Step1_IndicatorSelector } from './Step1_IndicatorSelector';
 import { Step2_EntryBuilder } from './Step2_EntryBuilder';
+import { Step_ExitBuilder } from './Step_ExitBuilder';
 import { Step3_StopLossSelector } from './Step3_StopLossSelector';
 import { Step4_Advanced } from './Step4_Advanced';
 import type { StrategyDraft, ValidationError } from '@/types/strategy-draft';
@@ -50,7 +52,7 @@ export function StepWizard({
     <Card className="p-6">
       <Tabs value={currentStep} onValueChange={setCurrentStep}>
         {/* Step 탭 목록 */}
-        <TabsList className="grid w-full grid-cols-4 mb-6">
+        <TabsList className="grid w-full grid-cols-5 mb-6">
           <TabsTrigger value="step1" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">지표</span>
@@ -58,6 +60,10 @@ export function StepWizard({
           <TabsTrigger value="step2" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             <span className="hidden sm:inline">진입</span>
+          </TabsTrigger>
+          <TabsTrigger value="exit" className="flex items-center gap-2">
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">진출</span>
           </TabsTrigger>
           <TabsTrigger value="step3" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
@@ -107,11 +113,26 @@ export function StepWizard({
           />
         </TabsContent>
         
+        {/* 진출 조건 (선택사항) */}
+        <TabsContent value="exit">
+          <Step_ExitBuilder
+            exit={draft.exit}
+            indicators={draft.indicators}
+            availableIndicators={availableIndicators}
+            isLoadingIndicators={isLoadingIndicators}
+            onUpdateExit={(exit) => {
+              updateDraft(d => ({ ...d, exit }));
+            }}
+          />
+        </TabsContent>
+        
         {/* Step 3: 손절 */}
         <TabsContent value="step3">
           <Step3_StopLossSelector
             stopLoss={draft.stopLoss}
             indicators={draft.indicators}
+            availableIndicators={availableIndicators}
+            isLoadingIndicators={isLoadingIndicators}
             onUpdateStopLoss={(stopLoss) => {
               updateDraft(d => ({ ...d, stopLoss }));
             }}

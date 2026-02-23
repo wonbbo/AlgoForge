@@ -133,6 +133,18 @@ def execute_backtest(run_id: int):
             )
             strategy_func = strategy_parser.create_strategy_function()
             
+            # 진출 조건 관련 설정 추출
+            exit_checker = None
+            atr_trailing_config = None
+            atr_value_getter = None
+            
+            if strategy_parser.has_indicator_based_exit():
+                exit_checker = strategy_parser.create_exit_checker()
+            
+            if strategy_parser.has_atr_trailing():
+                atr_trailing_config = strategy_parser.get_atr_trailing_config()
+                atr_value_getter = strategy_parser.get_atr_value
+            
         except Exception as e:
             logger.error(f"전략 파서 생성 실패: {str(e)}", exc_info=True)
             run_repo.update_status(
@@ -183,7 +195,12 @@ def execute_backtest(run_id: int):
             db_conn=db,  # DB 연결 전달
             risk_percent=preset['risk_percent'],
             risk_reward_ratio=preset['risk_reward_ratio'],
-            rebalance_interval=preset['rebalance_interval']
+            rebalance_interval=preset['rebalance_interval'],
+            # 진출 조건 관련 파라미터
+            exit_checker=exit_checker,
+            atr_trailing_config=atr_trailing_config,
+            atr_value_getter=atr_value_getter,
+            timestamp_to_index=strategy_parser.timestamp_to_index
         )
         
         trades = engine.run(bars)
@@ -699,6 +716,7 @@ async def get_trade_chart_data(run_id: int, trade_id: int):
             oscillator_types = {
                 "rsi",      # RSI (0-100)
                 "atr",      # ATR (독립적인 변동성 값)
+                "adx",      # ADX (독립적인 방향성 값)
                 "macd",     # MACD (독립적인 모멘텀 값)
                 "stoch",    # Stochastic (0-100)
                 "cci",      # Commodity Channel Index

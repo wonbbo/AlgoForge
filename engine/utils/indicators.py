@@ -5,15 +5,17 @@ pandas DataFrame과 ta 라이브러리를 활용하여 기술적 지표를 계�
 모든 계산은 결정적(deterministic)이어야 합니다.
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, Any, Callable
 import logging
+import numpy as np
+import pandas as pd
+
+from typing import Dict, Any, Callable
 
 # ta 라이브러리 import
-from ta.trend import EMAIndicator, SMAIndicator
+from ta.trend import MACD
 from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange
+from ta.trend import EMAIndicator, SMAIndicator, ADXIndicator
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ class IndicatorCalculator:
     def __init__(self, df: pd.DataFrame | list):
         """
         Args:
-            df: OHLCV DataFrame (columns: timestamp, open, high, low, close, volume, direction)
+            df: OHLCV DataFrame (index: DatetimeIndex, columns: open, high, low, close, volume, direction)
         
         Note:
             원본 DataFrame은 보호하기 위해 복사본을 생성합니다.
@@ -78,7 +80,7 @@ class IndicatorCalculator:
         Args:
             indicator_def: 지표 정의 딕셔너리
                 - id: 지표 ID (컬럼명으로 사용)
-                - type: 지표 타입 (ema, sma, rsi, atr 등)
+                - type: 지표 타입 (ema, sma, rsi, atr, adx 등)
                 - params: 파라미터 딕셔너리
         
         Raises:
@@ -104,6 +106,8 @@ class IndicatorCalculator:
                 self._calculate_rsi(indicator_id, params)
             elif indicator_type == "atr":
                 self._calculate_atr(indicator_id, params)
+            elif indicator_type == "adx":
+                self._calculate_adx(indicator_id, params)
             elif indicator_type in self.custom_indicators:
                 # 커스텀 지표
                 self._calculate_custom(indicator_id, indicator_type, params)
@@ -278,21 +282,9 @@ class IndicatorCalculator:
             if col not in self.df.columns:
                 raise ValueError(f"ATR 계산에 필요한 컬럼이 없습니다: {col}")
         
-        # True Range 계산
-        high = self.df['high']
-        low = self.df['low']
-        close = self.df['close']
+        atr_indicator = AverageTrueRange(high=self.df['high'], low=self.df['low'], close=self.df['close'], window=period)
+        self.df[indicator_id] = atr_indicator.average_true_range().bfill()
         
-        prev_close = close.shift(1)
-        tr1 = high - low
-        tr2 = (high - prev_close).abs()
-        tr3 = (low - prev_close).abs()
-        true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-        
-        # 단순 이동평균 기반 ATR (테스트 기대치와 일치)
-        atr = true_range.rolling(window=period, min_periods=1).mean()
-        self.df[indicator_id] = atr.bfill()
-    
     def calculate_atr(self, indicator_id: str, period: int = 14) -> None:
         """
         공개용 ATR 계산 래퍼 (테스트 호환성)
@@ -302,6 +294,38 @@ class IndicatorCalculator:
             period: ATR 기간 (기본 14)
         """
         self._calculate_atr(indicator_id, {"period": period})
+    
+    def _calculate_adx(self, indicator_id: str, params: Dict[str, Any]) -> None:
+        """
+        ADX (Average Directional Index) 계산 - ta 라이브러리 사용
+        
+        Args:
+            indicator_id: 지표 ID
+            params: 파라미터
+                - period: 기간 - 기본: 14
+        
+        Note:
+            ADX은 high, low, close 세 개의 컬럼을 사용합니다.
+            데이터가 period보다 작으면 사용 가능한 데이터로 계산합니다.
+        """
+        period = params.get("period", 14)
+        
+        if period <= 0:
+            raise ValueError(f"period는 0보다 커야 합니다: {period}")
+        
+        # 필수 컬럼 확인
+        required_columns = ['high', 'low', 'close']
+        for col in required_columns:
+            if col not in self.df.columns:
+                raise ValueError(f"ADX 계산에 필요한 컬럼이 없습니다: {col}")
+        
+        # True Range 계산
+        high = self.df['high']
+        low = self.df['low']
+        close = self.df['close']
+        
+        adx_indicator = ADXIndicator(high=high, low=low, close=close, window=period, fillna=True)
+        self.df[indicator_id] = adx_indicator.adx().bfill()
     
     def _calculate_custom(
         self, 

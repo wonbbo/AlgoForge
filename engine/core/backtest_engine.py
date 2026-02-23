@@ -34,7 +34,11 @@ class BacktestEngine:
         db_conn: Optional[Any] = None,
         risk_percent: float = 0.02,
         risk_reward_ratio: float = 1.5,
-        rebalance_interval: int = 50
+        rebalance_interval: int = 50,
+        exit_checker: Optional[Callable[[int, str], bool]] = None,
+        atr_trailing_config: Optional[Dict[str, Any]] = None,
+        atr_value_getter: Optional[Callable[[int], Optional[float]]] = None,
+        timestamp_to_index: Optional[Dict[int, int]] = None
     ):
         """
         Args:
@@ -49,6 +53,15 @@ class BacktestEngine:
             risk_percent: 거래당 최대 손실 비율 (기본 0.02 = 2%, 프리셋에서 설정)
             risk_reward_ratio: 리스크 대비 보상 비율 (기본 1.5, 프리셋에서 설정)
             rebalance_interval: 잔고 재평가 주기 (기본 50거래, 프리셋에서 설정)
+            exit_checker: 지표 기반 진출 조건 체커 함수 (선택)
+                입력: (bar_index: int, direction: str)
+                출력: bool (True면 진출 조건 충족)
+            atr_trailing_config: ATR Trailing Stop 설정 (선택)
+                {'atr_indicator_id': str, 'multiplier': float}
+            atr_value_getter: ATR 값 조회 함수 (선택)
+                입력: (bar_index: int)
+                출력: Optional[float]
+            timestamp_to_index: timestamp → bar_index 매핑 (선택)
         """
         if initial_balance <= 0:
             raise ValueError("초기 잔고는 0보다 커야 합니다")
@@ -66,6 +79,12 @@ class BacktestEngine:
         )
         self.progress_callback = progress_callback
         self.rebalance_interval = rebalance_interval
+        
+        # 진출 조건 관련 설정
+        self.exit_checker = exit_checker
+        self.atr_trailing_config = atr_trailing_config
+        self.atr_value_getter = atr_value_getter
+        self.timestamp_to_index = timestamp_to_index or {}
         
         # 상태 관리
         self.current_position: Optional[Position] = None
@@ -130,11 +149,11 @@ class BacktestEngine:
         4. 신규 진입 판정
         
         Note:
-            같은 봉에서 청산과 진입이 동시에 일어나지 않도록
-            position_closed_this_bar 플래그 사용
+            - SL로 청산된 경우: 해당 봉에서 바로 재진입 조건 체크 허용
+            - REVERSE/BE로 청산된 경우: 해당 봉에서 재진입 불가 (TP1 이후이므로)
         """
-        # 이 봉에서 포지션이 청산되었는지 추적
-        position_closed_this_bar = False
+        # 이 봉에서 청산된 방식 추적 (None = 청산 없음)
+        closed_exit_type = None
         
         # 1. 기존 포지션이 있는 경우
         if self.current_position:
@@ -147,20 +166,27 @@ class BacktestEngine:
             # 3. 포지션 종료 처리
             if exit_type:
                 self._close_position(bar, exit_type)
-                position_closed_this_bar = True
+                closed_exit_type = exit_type
         
-        # 4. 신규 진입 판정 (포지션이 없고, 이 봉에서 청산되지 않았을 때만)
-        if not self.current_position and not position_closed_this_bar:
-            self._check_entry_signal(bar)
+        # 4. 신규 진입 판정
+        # - 포지션이 없고
+        # - 이 봉에서 청산되지 않았거나, SL로 청산된 경우에만 진입 조건 체크
+        # - SL 청산 후에는 바로 재진입 가능 (손절 후 즉시 재진입 허용)
+        # - REVERSE/BE 청산 후에는 재진입 불가 (TP1 발생 후이므로)
+        if not self.current_position:
+            if closed_exit_type is None or closed_exit_type == 'SL':
+                self._check_entry_signal(bar)
     
     def _check_exit_conditions(self, bar: Bar) -> Optional[ExitType]:
         """
         청산 조건 체크
         
         우선순위:
-        1. Stop Loss (최우선)
+        1. Stop Loss (최우선) - 일반 SL 또는 ATR Trailing SL
         2. TP1 (2순위)
-        3. Reverse Signal (3순위)
+        3. 지표 기반 진출 조건 (신규)
+        4. ATR Trailing Stop 도달 (TP1 후에만)
+        5. Reverse Signal (최후순위)
         
         Returns:
             청산 타입 또는 None
@@ -173,7 +199,11 @@ class BacktestEngine:
         if not pos:
             return None
         
-        # 1. Stop Loss 체크 (최우선)
+        # TP1 후 ATR Trailing이 활성화되어 있으면 trailing_stop 업데이트
+        if pos.tp1_hit and self.atr_trailing_config:
+            self._update_trailing_stop(bar, pos)
+        
+        # 1. Stop Loss 체크 (최우선) - trailing_stop도 고려
         if self._check_stop_loss(bar, pos):
             return 'SL'
         
@@ -185,7 +215,16 @@ class BacktestEngine:
             # (FINAL 종료는 아님)
             return None
         
-        # 3. Reverse Signal 체크
+        # 3. 지표 기반 진출 조건 체크
+        if self._check_indicator_exit(bar, pos):
+            # 지표 기반 진출은 EXIT_INDICATOR로 청산
+            # TP1 후면 BE로, 아니면 REVERSE로 처리 (기존 exit_type 재활용)
+            if pos.tp1_hit:
+                return 'BE'
+            else:
+                return 'REVERSE'
+        
+        # 4. Reverse Signal 체크
         # 중요: TP1 발생 봉에서는 reverse 평가 안 함
         if not pos.tp1_occurred_this_bar:
             if self._check_reverse_signal(bar, pos):
@@ -196,6 +235,83 @@ class BacktestEngine:
                     return 'REVERSE'
         
         return None
+    
+    def _update_trailing_stop(self, bar: Bar, pos: Position) -> None:
+        """
+        ATR Trailing Stop 업데이트
+        
+        TP1 달성 후 매 봉마다 호출됨
+        LONG: max(current_trailing, close - n × ATR)
+        SHORT: min(current_trailing, close + n × ATR)
+        
+        Args:
+            bar: 현재 봉
+            pos: 현재 포지션
+        """
+        if not self.atr_trailing_config or not self.atr_value_getter:
+            return
+        
+        # 봉 인덱스 가져오기
+        bar_index = self.timestamp_to_index.get(bar.timestamp)
+        if bar_index is None:
+            return
+        
+        # ATR 값 가져오기
+        atr_value = self.atr_value_getter(bar_index)
+        if atr_value is None or atr_value <= 0:
+            return
+        
+        multiplier = self.atr_trailing_config.get("multiplier", 2.0)
+        
+        if pos.direction == 'LONG':
+            # LONG: max(current_trailing, close - n × ATR)
+            new_trailing = bar.close - (atr_value * multiplier)
+            
+            # trailing_stop이 없으면 초기화 (진입가 = BE)
+            if pos.trailing_stop is None:
+                pos.trailing_stop = pos.entry_price
+            
+            # 유리한 방향(상승)으로만 업데이트
+            if new_trailing > pos.trailing_stop:
+                pos.trailing_stop = new_trailing
+                # stop_loss도 함께 업데이트
+                pos.stop_loss = pos.trailing_stop
+        
+        else:  # SHORT
+            # SHORT: min(current_trailing, close + n × ATR)
+            new_trailing = bar.close + (atr_value * multiplier)
+            
+            # trailing_stop이 없으면 초기화 (진입가 = BE)
+            if pos.trailing_stop is None:
+                pos.trailing_stop = pos.entry_price
+            
+            # 유리한 방향(하락)으로만 업데이트
+            if new_trailing < pos.trailing_stop:
+                pos.trailing_stop = new_trailing
+                # stop_loss도 함께 업데이트
+                pos.stop_loss = pos.trailing_stop
+    
+    def _check_indicator_exit(self, bar: Bar, pos: Position) -> bool:
+        """
+        지표 기반 진출 조건 체크
+        
+        Args:
+            bar: 현재 봉
+            pos: 현재 포지션
+        
+        Returns:
+            bool: 진출 조건 충족 여부
+        """
+        if not self.exit_checker:
+            return False
+        
+        # 봉 인덱스 가져오기
+        bar_index = self.timestamp_to_index.get(bar.timestamp)
+        if bar_index is None:
+            return False
+        
+        # 진출 조건 평가
+        return self.exit_checker(bar_index, pos.direction)
     
     def _check_stop_loss(self, bar: Bar, pos: Position) -> bool:
         """

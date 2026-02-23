@@ -9,7 +9,7 @@ ALTER TABLE indicators ADD COLUMN chart_config TEXT;
 -- 내장 지표: overlay 타입은 "main", oscillator 타입은 지표 타입명을 chart_name으로 사용
 UPDATE indicators 
 SET chart_config = CASE 
-    WHEN type IN ('rsi', 'atr', 'macd', 'stoch', 'cci', 'mfi', 'roc', 'willr') THEN
+    WHEN type IN ('rsi', 'atr', 'adx', 'macd', 'stoch', 'cci', 'mfi', 'roc', 'willr') THEN
         '{"main": {"chart_name": "' || type || '", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2}}}'
     ELSE
         '{"main": {"chart_name": "main", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2}}}'

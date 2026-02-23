@@ -24,9 +24,11 @@ sudo systemctl enable algoforge-api
 sudo systemctl enable algoforge-web
 
 sudo systemctl start algoforge-api
+sudo systemctl restart algoforge-api
 sudo systemctl status algoforge-api
 
 sudo systemctl start algoforge-web
+sudo systemctl restart algoforge-web
 sudo systemctl status algoforge-web
 
 sudo journalctl -u algoforge-api -f

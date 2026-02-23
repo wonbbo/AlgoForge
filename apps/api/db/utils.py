@@ -142,15 +142,19 @@ def load_bars_from_csv(
     bars.sort(key=lambda b: b.timestamp)
     
     # DataFrame 생성 (지표 계산을 위해)
-    df = pd.DataFrame({
-        'timestamp': [b.timestamp for b in bars],
-        'open': [b.open for b in bars],
-        'high': [b.high for b in bars],
-        'low': [b.low for b in bars],
-        'close': [b.close for b in bars],
-        'volume': [b.volume for b in bars],
-        'direction': [b.direction for b in bars]
-    })
+    # index: DatetimeIndex (UNIX timestamp → datetime 변환)
+    # timestamp 컬럼은 제거하고 index로만 사용
+    df = pd.DataFrame(
+        {
+            'open': [b.open for b in bars],
+            'high': [b.high for b in bars],
+            'low': [b.low for b in bars],
+            'close': [b.close for b in bars],
+            'volume': [b.volume for b in bars],
+            'direction': [b.direction for b in bars]
+        },
+        index=pd.to_datetime([b.timestamp for b in bars], unit='s')
+    )
     
     # 메타데이터 계산
     metadata = {

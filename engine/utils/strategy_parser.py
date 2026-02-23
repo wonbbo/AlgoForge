@@ -30,16 +30,19 @@ class StrategyParser:
         self.definition = strategy_definition
         self.bars = bars
         # df가 없으면 bars로부터 DataFrame 생성 (테스트 호환성)
+        # index: DatetimeIndex, timestamp 컬럼 없음
         if df is None:
-            self.df = pd.DataFrame({
-                'timestamp': [b.timestamp for b in bars],
-                'open': [b.open for b in bars],
-                'high': [b.high for b in bars],
-                'low': [b.low for b in bars],
-                'close': [b.close for b in bars],
-                'volume': [b.volume for b in bars],
-                'direction': [b.direction for b in bars],
-            })
+            self.df = pd.DataFrame(
+                {
+                    'open': [b.open for b in bars],
+                    'high': [b.high for b in bars],
+                    'low': [b.low for b in bars],
+                    'close': [b.close for b in bars],
+                    'volume': [b.volume for b in bars],
+                    'direction': [b.direction for b in bars],
+                },
+                index=pd.to_datetime([b.timestamp for b in bars], unit='s')
+            )
         else:
             self.df = df
         
@@ -509,7 +512,189 @@ class StrategyParser:
             
             return stop_loss
         
+        elif sl_type == "indicator_level":
+            # 사용자 지표 기반 손절가 계산 (가격 레벨)
+            # 지표 값 자체가 손절가가 됨
+            long_ref = stop_loss_def.get("long_ref")
+            short_ref = stop_loss_def.get("short_ref")
+            
+            # 방향에 따라 참조 선택
+            ref = long_ref if direction == "LONG" else short_ref
+            
+            if not ref:
+                logger.error(f"indicator_level 손절에 {direction} 참조가 없습니다")
+                return None
+            
+            # 참조를 컬럼명으로 변환 (indicatorId.field → indicatorId_field)
+            column_name = self._parse_indicator_ref(ref)
+            
+            # 지표 값 가져오기
+            try:
+                stop_loss_value = self.indicator_calc.get_value(column_name, bar_index)
+            except ValueError as e:
+                logger.warning(f"손절 지표 값을 가져올 수 없습니다 (ref={ref}, column={column_name}): {e}")
+                return None
+            
+            # 방어 로직: 유효하지 않은 값 처리
+            import math
+            if stop_loss_value is None or math.isnan(stop_loss_value) or math.isinf(stop_loss_value):
+                logger.warning(f"손절 지표 값이 유효하지 않습니다 (ref={ref}): {stop_loss_value}, 진입 스킵")
+                return None
+            
+            if stop_loss_value <= 0:
+                logger.warning(f"손절가가 0 이하입니다 (ref={ref}): {stop_loss_value}, 진입 스킵")
+                return None
+            
+            # 방향과 손절가 관계 검증
+            entry_price = bar.close
+            
+            if direction == "LONG" and stop_loss_value >= entry_price:
+                # LONG인데 손절가가 진입가 이상이면 리스크 0 또는 음수
+                logger.warning(
+                    f"LONG 손절가({stop_loss_value:.4f})가 진입가({entry_price:.4f}) 이상입니다, 진입 스킵"
+                )
+                return None
+            
+            if direction == "SHORT" and stop_loss_value <= entry_price:
+                # SHORT인데 손절가가 진입가 이하이면 리스크 0 또는 음수
+                logger.warning(
+                    f"SHORT 손절가({stop_loss_value:.4f})가 진입가({entry_price:.4f}) 이하입니다, 진입 스킵"
+                )
+                return None
+            
+            return stop_loss_value
+        
         else:
             logger.error(f"지원하지 않는 손절 타입: {sl_type}")
             return None
+    
+    def has_exit_conditions(self) -> bool:
+        """
+        전략에 진출 조건이 정의되어 있는지 확인합니다.
+        
+        Returns:
+            bool: 진출 조건이 있으면 True
+        """
+        exit_def = self.definition.get("exit", {})
+        if not exit_def:
+            return False
+        
+        # 지표 기반 진출 조건 확인
+        indicator_based = exit_def.get("indicator_based", {})
+        if indicator_based.get("enabled", False):
+            return True
+        
+        # ATR Trailing 확인
+        atr_trailing = exit_def.get("atr_trailing", {})
+        if atr_trailing.get("enabled", False):
+            return True
+        
+        return False
+    
+    def has_indicator_based_exit(self) -> bool:
+        """
+        지표 기반 진출 조건이 활성화되어 있는지 확인합니다.
+        """
+        exit_def = self.definition.get("exit", {})
+        indicator_based = exit_def.get("indicator_based", {})
+        return indicator_based.get("enabled", False)
+    
+    def has_atr_trailing(self) -> bool:
+        """
+        ATR Trailing Stop이 활성화되어 있는지 확인합니다.
+        """
+        exit_def = self.definition.get("exit", {})
+        atr_trailing = exit_def.get("atr_trailing", {})
+        return atr_trailing.get("enabled", False)
+    
+    def get_atr_trailing_config(self) -> Optional[Dict[str, Any]]:
+        """
+        ATR Trailing Stop 설정을 반환합니다.
+        
+        Returns:
+            Dict: {'atr_indicator_id': str, 'multiplier': float} 또는 None
+        """
+        exit_def = self.definition.get("exit", {})
+        atr_trailing = exit_def.get("atr_trailing", {})
+        
+        if not atr_trailing.get("enabled", False):
+            return None
+        
+        return {
+            "atr_indicator_id": atr_trailing.get("atr_indicator_id", ""),
+            "multiplier": atr_trailing.get("multiplier", 2.0)
+        }
+    
+    def evaluate_exit_condition(self, bar_index: int, direction: str) -> bool:
+        """
+        지표 기반 진출 조건을 평가합니다.
+        
+        Args:
+            bar_index: 현재 봉 인덱스
+            direction: 포지션 방향 ('LONG' 또는 'SHORT')
+        
+        Returns:
+            bool: 진출 조건 충족 여부
+        """
+        exit_def = self.definition.get("exit", {})
+        indicator_based = exit_def.get("indicator_based", {})
+        
+        if not indicator_based.get("enabled", False):
+            return False
+        
+        # 방향에 따라 조건 선택
+        if direction == "LONG":
+            conditions = indicator_based.get("long", {})
+        else:  # SHORT
+            conditions = indicator_based.get("short", {})
+        
+        return self._evaluate_entry_conditions(conditions, bar_index)
+    
+    def get_atr_value(self, bar_index: int) -> Optional[float]:
+        """
+        ATR Trailing용 ATR 값을 가져옵니다.
+        
+        Args:
+            bar_index: 현재 봉 인덱스
+        
+        Returns:
+            Optional[float]: ATR 값 또는 None
+        """
+        config = self.get_atr_trailing_config()
+        if not config:
+            return None
+        
+        atr_indicator_id = config.get("atr_indicator_id", "")
+        if not atr_indicator_id:
+            return None
+        
+        try:
+            return self.indicator_calc.get_value(atr_indicator_id, bar_index)
+        except ValueError as e:
+            logger.warning(f"ATR 지표 값을 가져올 수 없습니다: {e}")
+            return None
+    
+    def create_exit_checker(self) -> Callable[[int, str], bool]:
+        """
+        백테스트 엔진이 사용할 진출 조건 체커 함수를 생성합니다.
+        
+        Returns:
+            Callable: exit_checker(bar_index, direction) -> bool
+                - True: 진출 조건 충족 (포지션 청산)
+                - False: 진출 조건 미충족
+        """
+        def exit_checker(bar_index: int, direction: str) -> bool:
+            """
+            지표 기반 진출 조건을 체크합니다.
+            
+            Args:
+                bar_index: 현재 봉 인덱스
+                direction: 포지션 방향 ('LONG' 또는 'SHORT')
+            
+            Returns:
+                bool: 진출 조건 충족 여부
+            """
+            return self.evaluate_exit_condition(bar_index, direction)
+        
+        return exit_checker
 

@@ -28,6 +28,8 @@ class Position:
         tp1_hit: TP1 도달 여부
         tp1_occurred_this_bar: 현재 봉에서 TP1 발생 여부
             (TP1 발생 봉에서는 reverse 신호 평가를 스킵하기 위한 플래그)
+        trailing_stop: ATR Trailing Stop 손절가 (TP1 이후 동적 업데이트)
+            None이면 ATR Trailing 비활성화
     """
     trade_id: int
     direction: Direction
@@ -39,6 +41,7 @@ class Position:
     initial_risk: float
     tp1_hit: bool = False
     tp1_occurred_this_bar: bool = False
+    trailing_stop: float = None  # ATR Trailing Stop용 동적 손절가
     
     def __post_init__(self):
         """데이터 검증"""
