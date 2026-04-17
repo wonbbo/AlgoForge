@@ -153,7 +153,7 @@ export function ConditionRow({
                 // 표시명 생성 (항상 점 사용)
                 let displayLabel: string;
                 let storageValue: string;
-                
+
                 if (isCustom) {
                   // 커스텀 지표: 항상 지표명.필드명 형태
                   displayLabel = `${ind.id}.${field}`;
@@ -170,7 +170,13 @@ export function ConditionRow({
                   // 저장값은 점(.)으로 구분 (백엔드에서 _로 변환)
                   storageValue = `${ind.id}.${field}`;
                 }
-                
+
+                // MTF: 타임프레임이 'base'가 아니면 @tf 접미사 부착
+                if (ind.timeframe && ind.timeframe !== 'base') {
+                  storageValue = `${storageValue}@${ind.timeframe}`;
+                  displayLabel = `${displayLabel} @${ind.timeframe}`;
+                }
+
                 console.log(`    ✓ 옵션 생성: ${displayLabel} (value: ${storageValue})`);
                 
                 return (
@@ -285,7 +291,7 @@ export function ConditionRow({
                 // 표시명 생성 (항상 점 사용)
                 let displayLabel: string;
                 let storageValue: string;
-                
+
                 if (isCustom) {
                   // 커스텀 지표: 항상 지표명.필드명 형태
                   displayLabel = `${ind.id}.${field}`;
@@ -302,7 +308,13 @@ export function ConditionRow({
                   // 저장값은 점(.)으로 구분 (백엔드에서 _로 변환)
                   storageValue = `${ind.id}.${field}`;
                 }
-                
+
+                // MTF: 타임프레임이 'base'가 아니면 @tf 접미사 부착
+                if (ind.timeframe && ind.timeframe !== 'base') {
+                  storageValue = `${storageValue}@${ind.timeframe}`;
+                  displayLabel = `${displayLabel} @${ind.timeframe}`;
+                }
+
                 console.log(`    ✓ 옵션 생성: ${displayLabel} (value: ${storageValue})`);
                 
                 return (

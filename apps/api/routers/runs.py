@@ -16,6 +16,7 @@ from pathlib import Path
 from apps.api.db.database import get_database
 from apps.api.db.repositories import (
     RunRepository,
+    RunDatasetRepository,
     DatasetRepository,
     StrategyRepository,
     TradeRepository,
@@ -57,13 +58,14 @@ def execute_backtest(run_id: int):
     try:
         db = get_database()
         run_repo = RunRepository(db)
+        run_dataset_repo = RunDatasetRepository(db)
         dataset_repo = DatasetRepository(db)
         strategy_repo = StrategyRepository(db)
         trade_repo = TradeRepository(db)
         trade_leg_repo = TradeLegRepository(db)
         metrics_repo = MetricsRepository(db)
         preset_repo = PresetRepository(db)
-        
+
         # Run 정보 조회
         run = run_repo.get_by_id(run_id)
         if not run:
@@ -123,13 +125,33 @@ def execute_backtest(run_id: int):
         
         # CSV 파일 로드 (DataFrame 포함)
         bars, df, _ = load_bars_from_csv(dataset["file_path"], include_df=True)
-        
+
+        # 멀티 타임프레임(HTF) 데이터셋 로드 — run_datasets 정션 테이블에서 role별 조회
+        htf_data = {}
+        role_to_dataset = run_dataset_repo.get_for_run(run_id)
+        for role, ds_id in role_to_dataset.items():
+            if role == "base":
+                continue
+            htf_ds = dataset_repo.get_by_id(ds_id)
+            if not htf_ds:
+                logger.error(f"HTF dataset {ds_id} (role={role}) not found")
+                run_repo.update_status(
+                    run_id=run_id,
+                    status="FAILED",
+                    completed_at=int(time.time()),
+                    run_artifacts={"error": f"HTF dataset not found (role={role}, id={ds_id})"}
+                )
+                return
+            htf_bars, htf_df, _ = load_bars_from_csv(htf_ds["file_path"], include_df=True)
+            htf_data[role] = (htf_bars, htf_df)
+
         # 전략 파서 생성 및 전략 함수 생성
         try:
             strategy_parser = StrategyParser(
                 strategy_definition=strategy["definition"],
                 bars=bars,
-                df=df
+                df=df,
+                htf_data=htf_data if htf_data else None
             )
             strategy_func = strategy_parser.create_strategy_function()
             
@@ -272,15 +294,29 @@ async def create_run(run_create: RunCreate, background_tasks: BackgroundTasks):
     try:
         db = get_database()
         run_repo = RunRepository(db)
+        run_dataset_repo = RunDatasetRepository(db)
         dataset_repo = DatasetRepository(db)
         strategy_repo = StrategyRepository(db)
         preset_repo = PresetRepository(db)
-        
+
         # Dataset 존재 확인
         dataset = dataset_repo.get_by_id(run_create.dataset_id)
         if not dataset:
             raise DatasetNotFoundError(run_create.dataset_id)
-        
+
+        # HTF 데이터셋 검증 (존재성 + 타임프레임 일치)
+        htf_dataset_ids = run_create.htf_dataset_ids or {}
+        for tf, htf_ds_id in htf_dataset_ids.items():
+            htf_ds = dataset_repo.get_by_id(htf_ds_id)
+            if not htf_ds:
+                raise DatasetNotFoundError(htf_ds_id)
+            if htf_ds.get("timeframe") != tf:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"HTF dataset {htf_ds_id}의 timeframe은 '{htf_ds.get('timeframe')}'인데 "
+                           f"요청에서는 '{tf}'로 매핑되어 있습니다."
+                )
+
         # Strategy 존재 확인
         strategy = strategy_repo.get_by_id(run_create.strategy_id)
         if not strategy:
@@ -316,7 +352,14 @@ async def create_run(run_create: RunCreate, background_tasks: BackgroundTasks):
             initial_balance=initial_balance,
             preset_id=preset_id
         )
-        
+
+        # 정션 테이블에 base + HTF 매핑 기록 (MTF 지원)
+        run_dataset_repo.set_for_run(
+            run_id=run_id,
+            base_dataset_id=run_create.dataset_id,
+            htf_dataset_ids=htf_dataset_ids,
+        )
+
         # Background Task로 백테스트 실행
         background_tasks.add_task(execute_backtest, run_id)
         

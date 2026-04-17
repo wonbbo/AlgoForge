@@ -12,10 +12,15 @@ import pandas as pd
 from typing import Dict, Any, Callable
 
 # ta 라이브러리 import
-from ta.trend import MACD
 from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange
-from ta.trend import EMAIndicator, SMAIndicator, ADXIndicator
+from ta.trend import (
+    MACD,
+    EMAIndicator,
+    SMAIndicator,
+    ADXIndicator,
+    CCIIndicator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +113,10 @@ class IndicatorCalculator:
                 self._calculate_atr(indicator_id, params)
             elif indicator_type == "adx":
                 self._calculate_adx(indicator_id, params)
+            elif indicator_type == "macd":
+                self._calculate_macd(indicator_id, params)
+            elif indicator_type == "cci":
+                self._calculate_cci(indicator_id, params)
             elif indicator_type in self.custom_indicators:
                 # 커스텀 지표
                 self._calculate_custom(indicator_id, indicator_type, params)
@@ -326,6 +335,118 @@ class IndicatorCalculator:
         
         adx_indicator = ADXIndicator(high=high, low=low, close=close, window=period, fillna=True)
         self.df[indicator_id] = adx_indicator.adx().bfill()
+    
+    def _calculate_macd(self, indicator_id: str, params: Dict[str, Any]) -> None:
+        """
+        MACD (Moving Average Convergence Divergence) 계산 - ta 라이브러리 사용
+        
+        다중 출력 지표: MACD 라인(main), Signal 라인, Histogram, Histogram 방향을 계산합니다.
+        커스텀 다중 출력 지표와 동일한 컬럼 네이밍 규약을 따릅니다:
+            - main                → self.df[indicator_id]
+            - signal              → self.df[f"{indicator_id}_signal"]
+            - histogram           → self.df[f"{indicator_id}_histogram"]
+            - histogram_direction → self.df[f"{indicator_id}_histogram_direction"]
+        
+        histogram_direction 값 정의 (이전 봉의 히스토그램과 비교):
+            +1 : 이전보다 증가 (상승 모멘텀 강화)
+            -1 : 이전보다 감소 (상승 모멘텀 약화 / 하락 모멘텀 강화)
+             0 : 이전과 동일 또는 첫 봉 (비교 불가)
+        
+        Args:
+            indicator_id: 지표 ID
+            params: 파라미터
+                - source: 소스 필드 (open, high, low, close, volume) - 기본: close
+                - fast_period: 단기 EMA 기간 - 기본: 12
+                - slow_period: 장기 EMA 기간 - 기본: 26
+                - signal_period: 시그널 라인 EMA 기간 - 기본: 9
+        
+        Raises:
+            ValueError: 기간 값이 유효하지 않거나 소스 컬럼이 없는 경우
+        """
+        source = params.get("source", "close")
+        fast_period = params.get("fast_period", 12)
+        slow_period = params.get("slow_period", 26)
+        signal_period = params.get("signal_period", 9)
+        
+        # 파라미터 유효성 검증
+        if fast_period <= 0 or slow_period <= 0 or signal_period <= 0:
+            raise ValueError(
+                f"MACD 기간은 모두 0보다 커야 합니다: "
+                f"fast={fast_period}, slow={slow_period}, signal={signal_period}"
+            )
+        if fast_period >= slow_period:
+            raise ValueError(
+                f"MACD fast_period({fast_period})는 slow_period({slow_period})보다 작아야 합니다"
+            )
+        
+        if source not in self.df.columns:
+            raise ValueError(f"소스 필드가 없습니다: {source}")
+        
+        # ta 라이브러리 사용
+        macd_indicator = MACD(
+            close=self.df[source],
+            window_slow=slow_period,
+            window_fast=fast_period,
+            window_sign=signal_period,
+            fillna=True,
+        )
+        
+        # 다중 출력 저장 (main / signal / histogram)
+        main_column = indicator_id
+        signal_column = f"{indicator_id}_signal"
+        histogram_column = f"{indicator_id}_histogram"
+        histogram_direction_column = f"{indicator_id}_histogram_direction"
+        
+        self.df[main_column] = macd_indicator.macd().bfill()
+        self.df[signal_column] = macd_indicator.macd_signal().bfill()
+        self.df[histogram_column] = macd_indicator.macd_diff().bfill()
+        
+        # 히스토그램 방향 계산: 현재 봉의 히스토그램이 이전 봉보다 큰지/작은지
+        #   +1 = 상승, -1 = 하락, 0 = 동일 또는 첫 봉
+        #   np.sign이 NaN을 NaN으로 반환하므로 첫 봉은 0으로 보정
+        histogram_series = self.df[histogram_column]
+        histogram_diff = histogram_series.diff()
+        self.df[histogram_direction_column] = (
+            np.sign(histogram_diff).fillna(0).astype(int)
+        )
+    
+    def _calculate_cci(self, indicator_id: str, params: Dict[str, Any]) -> None:
+        """
+        CCI (Commodity Channel Index) 계산 - ta 라이브러리 사용
+        
+        Args:
+            indicator_id: 지표 ID
+            params: 파라미터
+                - period: 기간 - 기본: 20
+                - constant: CCI 상수 - 기본: 0.015
+        
+        Note:
+            CCI는 high, low, close 세 개의 컬럼을 사용합니다.
+        
+        Raises:
+            ValueError: 기간 값이 유효하지 않거나 필수 컬럼이 없는 경우
+        """
+        period = params.get("period", 20)
+        constant = params.get("constant", 0.015)
+        
+        if period <= 0:
+            raise ValueError(f"period는 0보다 커야 합니다: {period}")
+        
+        # 필수 컬럼 확인
+        required_columns = ["high", "low", "close"]
+        for col in required_columns:
+            if col not in self.df.columns:
+                raise ValueError(f"CCI 계산에 필요한 컬럼이 없습니다: {col}")
+        
+        cci_indicator = CCIIndicator(
+            high=self.df["high"],
+            low=self.df["low"],
+            close=self.df["close"],
+            window=period,
+            constant=constant,
+            fillna=True,
+        )
+        self.df[indicator_id] = cci_indicator.cci().bfill()
     
     def _calculate_custom(
         self, 

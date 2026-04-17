@@ -43,11 +43,13 @@ class DatasetRepository:
         start_timestamp: int,
         end_timestamp: int,
         description: Optional[str] = None,
-        timeframe: str = "5m"
+        timeframe: str = "5m",
+        symbol: str = "XRPUSDT",
+        market_type: str = "futures_um"
     ) -> int:
         """
         데이터셋 생성
-        
+
         Args:
             name: 데이터셋 이름
             dataset_hash: 데이터셋 해시 (중복 체크용)
@@ -57,23 +59,25 @@ class DatasetRepository:
             end_timestamp: 종료 timestamp
             description: 설명 (선택)
             timeframe: 타임프레임 (기본값: 5m)
-            
+            symbol: 종목 (기본값: XRPUSDT)
+            market_type: 시장 타입 (기본값: futures_um — 'spot' 또는 'futures_um')
+
         Returns:
             int: 생성된 dataset_id
         """
         query = """
         INSERT INTO datasets (
-            name, description, timeframe, dataset_hash, file_path,
-            bars_count, start_timestamp, end_timestamp, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            name, description, symbol, market_type, timeframe, dataset_hash,
+            file_path, bars_count, start_timestamp, end_timestamp, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        
+
         created_at = int(time.time())
-        
+
         return self.db.execute_insert(
             query,
-            (name, description, timeframe, dataset_hash, file_path,
-             bars_count, start_timestamp, end_timestamp, created_at)
+            (name, description, symbol, market_type, timeframe, dataset_hash,
+             file_path, bars_count, start_timestamp, end_timestamp, created_at)
         )
     
     def get_by_id(self, dataset_id: int) -> Optional[Dict[str, Any]]:
@@ -546,10 +550,49 @@ class RunRepository:
         return self.db.execute_delete(run_query, (run_id,))
 
 
+class RunDatasetRepository:
+    """
+    run_datasets 정션 테이블 관리 Repository (멀티 타임프레임 지원)
+
+    각 run이 사용하는 여러 role(base/HTF 타임프레임)별 dataset_id 매핑을 관리합니다.
+    role은 'base'(베이스 TF) 또는 타임프레임 문자열('1h', '1d' 등).
+    """
+
+    def __init__(self, db: Database):
+        self.db = db
+
+    def set_for_run(
+        self,
+        run_id: int,
+        base_dataset_id: int,
+        htf_dataset_ids: Optional[Dict[str, int]] = None,
+    ) -> None:
+        """Run의 모든 데이터셋 매핑을 한 번에 기록 (기존 매핑은 교체)."""
+        with self.db.get_connection() as conn:
+            conn.execute("DELETE FROM run_datasets WHERE run_id = ?", (run_id,))
+            conn.execute(
+                "INSERT INTO run_datasets (run_id, dataset_id, role) VALUES (?, ?, 'base')",
+                (run_id, base_dataset_id),
+            )
+            if htf_dataset_ids:
+                for tf, ds_id in htf_dataset_ids.items():
+                    conn.execute(
+                        "INSERT INTO run_datasets (run_id, dataset_id, role) VALUES (?, ?, ?)",
+                        (run_id, ds_id, tf),
+                    )
+            conn.commit()
+
+    def get_for_run(self, run_id: int) -> Dict[str, int]:
+        """run_id의 role→dataset_id 매핑을 반환. 없으면 빈 dict."""
+        query = "SELECT role, dataset_id FROM run_datasets WHERE run_id = ?"
+        results = self.db.execute_query(query, (run_id,))
+        return {row["role"]: row["dataset_id"] for row in results}
+
+
 class TradeRepository:
     """
     trades 테이블 관리 Repository
-    
+
     주요 기능:
     - Trade 생성, 조회
     - Run별 Trade 조회

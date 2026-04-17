@@ -94,11 +94,21 @@ export function Step1_IndicatorSelector({
     const newIndicator: IndicatorDraft = {
       id,
       type: indicator.type,
-      params: { ...defaultParams }
+      params: { ...defaultParams },
+      timeframe: 'base'
     };
-    
+
     onAddIndicator(newIndicator);
   };
+
+  // 타임프레임 변경 핸들러
+  const handleTimeframeUpdate = (id: string, tf: string) => {
+    const indicator = indicators.find(i => i.id === id);
+    if (!indicator) return;
+    onUpdateIndicator(id, { ...indicator, timeframe: tf });
+  };
+
+  const SUPPORTED_TFS = ['base', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d'];
   
   // 지표 파라미터 업데이트
   const handleParamUpdate = (id: string, paramKey: string, value: any) => {
@@ -223,6 +233,16 @@ export function Step1_IndicatorSelector({
                         {indicatorInfo.implementation_type === 'custom' && (
                           <Badge variant="secondary" className="text-xs">커스텀</Badge>
                         )}
+                        <select
+                          value={indicator.timeframe ?? 'base'}
+                          onChange={(e) => handleTimeframeUpdate(indicator.id, e.target.value)}
+                          className="h-7 px-2 rounded-md border border-input bg-background text-xs ml-auto"
+                          title="타임프레임 (MTF)"
+                        >
+                          {SUPPORTED_TFS.map(tf => (
+                            <option key={tf} value={tf}>{tf === 'base' ? 'base (기본)' : tf}</option>
+                          ))}
+                        </select>
                       </div>
                       <Button 
                         variant="ghost" 

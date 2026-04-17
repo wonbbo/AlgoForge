@@ -23,14 +23,20 @@ class RunCreate(BaseModel):
             "example": {
                 "dataset_id": 1,
                 "strategy_id": 1,
-                "preset_id": 1
+                "preset_id": 1,
+                "htf_dataset_ids": {"1h": 7, "1d": 8}
             }
         }
     )
-    
-    dataset_id: int = Field(..., description="데이터셋 ID")
+
+    dataset_id: int = Field(..., description="베이스 타임프레임 데이터셋 ID")
     strategy_id: int = Field(..., description="전략 ID")
     preset_id: Optional[int] = Field(default=None, description="프리셋 ID (없으면 기본 프리셋 사용)")
+    htf_dataset_ids: Optional[Dict[str, int]] = Field(
+        default=None,
+        description="상위 타임프레임 데이터셋 매핑 ({'1h': 7, '1d': 8} 형식). "
+                    "base와 동일한 종목·기간이어야 하며, 각 타임프레임 봉은 오름차순 정렬 전제."
+    )
 
 
 class RunResponse(BaseModel):

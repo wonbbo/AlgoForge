@@ -40,30 +40,41 @@ export default function NewIndicatorPage() {
     code: `def calculate_custom_indicator(df, params):
     """
     커스텀 지표 계산 함수
-    
+
     Args:
         df: OHLCV DataFrame (columns: timestamp, open, high, low, close, volume, direction)
-        params: 파라미터 딕셔너리
-    
+            전략 빌더(Step1)에서 지정한 타임프레임의 봉 데이터가 들어옵니다.
+            예) timeframe='base' → 베이스 TF 봉, timeframe='1h' → 1h 봉.
+            함수 본문은 TF에 무관하게 동일하게 작성하면 됩니다.
+        params: 파라미터 딕셔너리 (params_schema 기본값이 병합되어 전달)
+
     Returns:
         pd.Series 또는 Dict[str, pd.Series]:
         - 단일 값: pd.Series 반환 (예: df['close'].rolling(window=period).mean())
         - 여러 값: Dict[str, pd.Series] 반환 (예: {'main': ..., 'signal': ..., 'histogram': ...})
-        
-    중요: output_fields에 여러 필드가 있는 경우 반드시 Dict[str, pd.Series] 형태로 반환해야 합니다.
+
+    중요:
+    - output_fields에 여러 필드가 있는 경우 반드시 Dict[str, pd.Series] 형태로 반환.
+    - 반환 Series의 인덱스는 입력 df 인덱스와 정확히 일치해야 함 (reindex 금지, NaN은 fillna 권장).
+    - 미래 봉 참조 금지 (shift(-n) 등). 결정성 보장을 위해 과거 데이터만 사용하세요.
+
+    멀티 타임프레임 (MTF) 사용 시:
+    - 전략 빌더 Step1에서 이 지표의 타임프레임을 'base' 외 값(예: 1h, 1d)으로 지정하면
+      해당 TF의 df가 들어옵니다. 함수 코드는 그대로 재사용됩니다.
+    - 조건식에서는 지표 ID 뒤에 @tf 접미사로 참조합니다 (예: ema_trend@1h).
     """
     import pandas as pd
-    
+
     period = params.get('period', 20)
-    
+
     # 예시 1: 단일 값 반환 (output_fields: ['main'])
     # return df['close'].rolling(window=period).mean().fillna(0)
-    
+
     # 예시 2: 여러 값 반환 (output_fields: ['main', 'signal', 'histogram'])
     sma = df['close'].rolling(window=period).mean()
     signal = sma.rolling(window=9).mean()
     histogram = sma - signal
-    
+
     return {
         'main': sma.fillna(0),
         'signal': signal.fillna(0),

@@ -2,35 +2,53 @@
 전략 파서(Strategy Parser) 모듈
 
 Strategy JSON을 파싱하여 신호를 생성합니다.
+
+멀티 타임프레임(MTF) 지원:
+  - 인디케이터 정의에 "timeframe" 필드 추가 가능 (없으면 "base")
+  - 조건식 ref에 "@1h" 등 접미사 지정 가능 (없으면 "base")
+  - HTF 값은 "이미 닫힌 마지막 HTF 봉" 기준 — look-ahead 구조적 차단
 """
 
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, Tuple
 import pandas as pd
 from ..models.bar import Bar
 from .indicators import IndicatorCalculator
+from .htf_mapper import build_htf_index_map, interval_to_seconds
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+BASE_TF = "base"
+
+
 class StrategyParser:
     """
     전략 파서
-    
+
     Strategy JSON을 파싱하여 봉마다 진입 신호를 생성합니다.
+    단일 타임프레임과 멀티 타임프레임(MTF) 모두 지원.
     """
-    
-    def __init__(self, strategy_definition: Dict[str, Any], bars: List[Bar], df: Optional[pd.DataFrame] = None):
+
+    def __init__(
+        self,
+        strategy_definition: Dict[str, Any],
+        bars: List[Bar],
+        df: Optional[pd.DataFrame] = None,
+        htf_data: Optional[Dict[str, Tuple[List[Bar], pd.DataFrame]]] = None,
+    ):
         """
         Args:
             strategy_definition: 전략 정의 JSON
-            bars: 봉 데이터 리스트
-            df: OHLCV DataFrame (지표 계산용)
+            bars: 베이스 타임프레임 봉 리스트
+            df: 베이스 OHLCV DataFrame (지표 계산용). 없으면 bars에서 자동 생성
+            htf_data: 상위 타임프레임 데이터 (선택)
+                key: 타임프레임 문자열 (예: "1h", "1d")
+                value: (bars, df) 튜플
         """
         self.definition = strategy_definition
         self.bars = bars
         # df가 없으면 bars로부터 DataFrame 생성 (테스트 호환성)
-        # index: DatetimeIndex, timestamp 컬럼 없음
         if df is None:
             self.df = pd.DataFrame(
                 {
@@ -45,82 +63,131 @@ class StrategyParser:
             )
         else:
             self.df = df
-        
-        # timestamp -> index 매핑 생성 (O(1) 검색을 위해)
-        # 매 봉마다 O(n) 순차 검색을 하면 전체 O(n²)이 되므로 미리 딕셔너리로 생성
+
+        # 베이스 TF의 timestamp -> index 매핑
         self.timestamp_to_index = {bar.timestamp: i for i, bar in enumerate(bars)}
-        
-        # Indicator Calculator 초기화 (DataFrame 전달)
-        self.indicator_calc = IndicatorCalculator(self.df)
-        
-        # 커스텀 지표 동적 로드
+
+        # ----- MTF 구조 -----
+        # 타임프레임별 IndicatorCalculator 보관. key="base" 는 항상 존재.
+        self.indicator_calcs: Dict[str, IndicatorCalculator] = {
+            BASE_TF: IndicatorCalculator(self.df),
+        }
+        # 타임프레임별 봉 리스트 (HTF 값 조회 시 사용)
+        self.tf_bars: Dict[str, List[Bar]] = {BASE_TF: bars}
+        # base_bar_index -> htf_bar_index 매핑 (look-ahead 차단 보장)
+        self.htf_index_maps: Dict[str, List[int]] = {}
+
+        if htf_data:
+            for tf, (htf_bars, htf_df) in htf_data.items():
+                if tf == BASE_TF:
+                    raise ValueError(f"'base'는 htf_data의 키로 사용할 수 없습니다")
+                if htf_df is None:
+                    htf_df = pd.DataFrame(
+                        {
+                            'open': [b.open for b in htf_bars],
+                            'high': [b.high for b in htf_bars],
+                            'low': [b.low for b in htf_bars],
+                            'close': [b.close for b in htf_bars],
+                            'volume': [b.volume for b in htf_bars],
+                            'direction': [b.direction for b in htf_bars],
+                        },
+                        index=pd.to_datetime([b.timestamp for b in htf_bars], unit='s')
+                    )
+                self.indicator_calcs[tf] = IndicatorCalculator(htf_df)
+                self.tf_bars[tf] = htf_bars
+                self.htf_index_maps[tf] = build_htf_index_map(
+                    base_bars=bars,
+                    htf_bars=htf_bars,
+                    htf_interval_sec=interval_to_seconds(tf),
+                )
+                logger.info(
+                    f"[MTF] HTF '{tf}' 등록: {len(htf_bars)} bars, "
+                    f"mapping start={self.htf_index_maps[tf][0] if bars else 'n/a'}"
+                )
+
+        # 하위호환: 기존 코드가 self.indicator_calc (단수)를 참조할 수 있음
+        self.indicator_calc = self.indicator_calcs[BASE_TF]
+
+        # 커스텀 지표 동적 로드 (모든 TF의 calculator에 등록)
         self._load_custom_indicators()
-        
+
         # 지표 계산
         self._calculate_indicators()
-        
+
         # 이전 지표 값 (cross 판정용)
         self.prev_indicator_values: Dict[str, float] = {}
     
     def _load_custom_indicators(self) -> None:
         """
-        데이터베이스에서 커스텀 지표를 로드하여 등록
-        
+        데이터베이스에서 커스텀 지표를 로드하여 각 TF의 calculator에 등록
+
         Note:
             DB 파일이 없거나 로드 실패 시에도 백테스트는 계속 진행됩니다.
-            내장 지표만으로도 동작 가능하기 때문입니다.
         """
         from pathlib import Path
         from .indicator_loader import register_custom_indicators
-        
+
         db_path = Path("db/algoforge.db")
-        
+
         if not db_path.exists():
             logger.debug(f"데이터베이스 파일이 없습니다: {db_path}")
             return
-        
+
         try:
-            count = register_custom_indicators(self.indicator_calc, str(db_path))
-            logger.debug(f"커스텀 지표 {count}개 로드 완료")
+            # 모든 TF의 calculator에 동일한 커스텀 지표 등록
+            total = 0
+            for tf, calc in self.indicator_calcs.items():
+                count = register_custom_indicators(calc, str(db_path))
+                total = count  # count는 DB의 지표 수이므로 TF마다 동일
+            logger.debug(f"커스텀 지표 {total}개 로드 완료 (TF 수: {len(self.indicator_calcs)})")
         except Exception as e:
             logger.warning(f"커스텀 지표 로드 실패: {e}")
-    
+
     def _calculate_indicators(self) -> None:
         """
-        전략에 정의된 모든 지표를 사전 계산합니다.
-        
-        새로운 DataFrame 기반 IndicatorCalculator를 사용하여
-        모든 지표를 한 번에 계산하고 DataFrame에 컬럼으로 저장합니다.
-        
-        Raises:
-            RuntimeError: 지표 계산 실패 시 (커스텀 지표 에러 포함)
+        전략에 정의된 모든 지표를 해당 TF의 calculator에서 사전 계산합니다.
+
+        인디케이터 JSON의 "timeframe" 필드로 대상 TF 선택 (없으면 "base").
         """
         indicators = self.definition.get("indicators", [])
-        
         logger.info(f"[전략 파싱] 지표 계산 시작: {len(indicators)}개")
-        
+
         for indicator in indicators:
             if not indicator.get("id") or not indicator.get("type"):
                 logger.warning(f"지표 정의가 불완전합니다: {indicator}")
                 continue
-            
+
             indicator_id = indicator.get('id')
             indicator_type = indicator.get('type')
-            
-            logger.info(f"[전략 파싱] 지표 계산 중: id={indicator_id}, type={indicator_type}")
-            
-            # 새로운 API 사용: calculate_indicator()
+            tf = indicator.get('timeframe', BASE_TF) or BASE_TF
+
+            if tf not in self.indicator_calcs:
+                raise RuntimeError(
+                    f"지표 '{indicator_id}'가 타임프레임 '{tf}'를 요구하지만 "
+                    f"해당 TF 데이터가 제공되지 않았습니다. "
+                    f"사용 가능: {list(self.indicator_calcs.keys())}"
+                )
+
+            logger.info(
+                f"[전략 파싱] 지표 계산: id={indicator_id}, type={indicator_type}, tf={tf}"
+            )
+
             try:
-                self.indicator_calc.calculate_indicator(indicator)
+                self.indicator_calcs[tf].calculate_indicator(indicator)
             except Exception as e:
-                # 커스텀 지표 에러 발생 시 상세 메시지와 함께 예외 전파
-                error_message = f"지표 계산 실패 - ID: '{indicator_id}', Type: '{indicator_type}', 에러: {str(e)}"
+                error_message = (
+                    f"지표 계산 실패 - ID: '{indicator_id}', Type: '{indicator_type}', "
+                    f"TF: '{tf}', 에러: {str(e)}"
+                )
                 logger.error(error_message, exc_info=True)
                 raise RuntimeError(error_message) from e
-        
-        # 계산 완료 후 DataFrame 컬럼 목록 출력
-        indicator_columns = [col for col in self.df.columns if col not in ['open', 'high', 'low', 'close', 'volume']]
-        logger.info(f"[전략 파싱] 지표 계산 완료. 생성된 컬럼: {indicator_columns}")
+
+        # 계산 완료 후 base DataFrame 컬럼 출력
+        indicator_columns = [
+            col for col in self.df.columns
+            if col not in ['open', 'high', 'low', 'close', 'volume', 'direction']
+        ]
+        logger.info(f"[전략 파싱] base 지표 컬럼: {indicator_columns}")
     
     def create_strategy_function(self) -> Callable[[Bar], Optional[Dict[str, Any]]]:
         """
@@ -268,82 +335,114 @@ class StrategyParser:
             logger.warning(f"지원하지 않는 연산자: {op}")
             return False
     
-    def _parse_indicator_ref(self, ref: str) -> str:
+    def _parse_indicator_ref(self, ref: str) -> Tuple[str, str]:
         """
-        지표 참조를 DataFrame 컬럼명으로 변환합니다.
-        
-        프론트엔드에서는 점(.)으로 구분된 참조를 사용하지만,
-        백엔드 DataFrame 컬럼명은 언더스코어(_)로 구분됩니다.
-        
-        Args:
-            ref: 지표 참조 (예: "ema_1.ema", "cvol_1.vmf")
-            
+        지표 참조를 (DataFrame 컬럼명, 타임프레임) 튜플로 변환합니다.
+
+        문법:
+          - "ema_1.ema"         → ("ema_1_ema", "base")     (기존 동작)
+          - "rsi_1h.rsi@1h"     → ("rsi_1h_rsi", "1h")      (MTF)
+          - "ema_1@1d"          → ("ema_1", "1d")           (점 없이 @만)
+          - "ema_1"             → ("ema_1", "base")
+
+        @ 기호가 ref 내부에 이미 등장할 수 없다는 전제 (지표 ID는 영숫자+언더스코어).
+        """
+        # @ 접미사 분리 (있으면 HTF, 없으면 base)
+        if "@" in ref:
+            main_ref, tf = ref.rsplit("@", 1)
+            tf = tf.strip()
+        else:
+            main_ref, tf = ref, BASE_TF
+
+        # 점(.) → 언더스코어(_) 변환 (기존 규칙)
+        if "." in main_ref:
+            parts = main_ref.rsplit(".", 1)
+            column_name = f"{parts[0]}_{parts[1]}"
+        else:
+            column_name = main_ref
+
+        return column_name, tf
+
+    def _resolve_tf_index(self, tf: str, base_index: int) -> Optional[int]:
+        """base_index에서 TF별 유효 인덱스로 변환.
+
         Returns:
-            str: DataFrame 컬럼명 (예: "ema_1_ema", "cvol_1_vmf")
-            
-        Examples:
-            >>> _parse_indicator_ref("ema_1.ema")
-            "ema_1_ema"
-            >>> _parse_indicator_ref("cvol_1.vmf")
-            "cvol_1_vmf"
-            >>> _parse_indicator_ref("ema_1")  # 점이 없으면 그대로
-            "ema_1"
+            - tf == "base": base_index 그대로
+            - tf == HTF: 해당 base 시점에서 "이미 닫힌 마지막 HTF 봉 인덱스" (-1이면 None 반환)
+            - 등록되지 않은 TF: None
         """
-        # 점이 없으면 그대로 반환 (하위 호환성)
-        if "." not in ref:
-            return ref
-        
-        # 마지막 점을 언더스코어로 변환
-        # "cvol_1.vmf" → "cvol_1_vmf"
-        parts = ref.rsplit(".", 1)  # 오른쪽부터 1개만 split
-        return f"{parts[0]}_{parts[1]}"
-    
+        if tf == BASE_TF:
+            return base_index
+        mapping = self.htf_index_maps.get(tf)
+        if mapping is None:
+            return None
+        if base_index < 0 or base_index >= len(mapping):
+            return None
+        htf_idx = mapping[base_index]
+        if htf_idx < 0:
+            return None
+        return htf_idx
+
     def _get_value(self, value_def: Dict[str, Any], bar_index: int) -> Optional[float]:
         """
         값 정의에서 실제 값을 가져옵니다.
-        
+
         Args:
             value_def: 값 정의 (예: {"ref": "ema_1.ema"} 또는 {"value": 50})
-            bar_index: 봉 인덱스
-            
+            bar_index: 베이스 TF의 봉 인덱스
+
         Returns:
             Optional[float]: 값 또는 None
         """
         # ref가 있으면 지표 참조
         if "ref" in value_def:
             ref = value_def["ref"]
-            
-            # 점(.)으로 구분된 참조를 언더스코어(_)로 변환
-            # 예: "cvol_1.vmf" → "cvol_1_vmf"
-            # 예: "ema_1.ema" → "ema_1_ema" 또는 "ema_1" (마지막 부분이 'main'이면 제거)
-            column_name = self._parse_indicator_ref(ref)
-            
-            # logger.info(f"[지표 참조] ref='{ref}' → column='{column_name}'")
-            
-            # 지표 참조인 경우
-            try:
-                value = self.indicator_calc.get_value(column_name, bar_index)
-                logger.debug(f"[지표 값] column='{column_name}', bar_index={bar_index}, value={value}")
-                return value
-            except ValueError as e:
-                # 사용 가능한 컬럼 목록 출력
-                available_columns = [col for col in self.df.columns if col not in ['open', 'high', 'low', 'close', 'volume']]
+            column_name, tf = self._parse_indicator_ref(ref)
+
+            calc = self.indicator_calcs.get(tf)
+            if calc is None:
                 logger.warning(
-                    f"지표 값 가져오기 실패: {ref} (컬럼: {column_name})\n"
-                    f"  에러: {e}\n"
-                    f"  사용 가능한 지표 컬럼: {available_columns}"
+                    f"지표 참조 '{ref}' — 타임프레임 '{tf}' 데이터가 없습니다. "
+                    f"사용 가능: {list(self.indicator_calcs.keys())}"
                 )
                 return None
-        
+
+            tf_index = self._resolve_tf_index(tf, bar_index)
+            if tf_index is None:
+                # HTF가 아직 한 봉도 닫히지 않음 → 값 없음
+                logger.debug(
+                    f"[HTF] ref='{ref}' tf='{tf}' base_index={bar_index}: "
+                    f"닫힌 HTF 봉 없음 → None"
+                )
+                return None
+
+            try:
+                value = calc.get_value(column_name, tf_index)
+                logger.debug(
+                    f"[지표 값] ref='{ref}' column='{column_name}' tf='{tf}' "
+                    f"tf_index={tf_index} value={value}"
+                )
+                return value
+            except ValueError as e:
+                available = [
+                    col for col in calc.df.columns
+                    if col not in ['open', 'high', 'low', 'close', 'volume', 'direction']
+                ]
+                logger.warning(
+                    f"지표 값 가져오기 실패: ref='{ref}' column='{column_name}' tf='{tf}'\n"
+                    f"  에러: {e}\n  사용 가능 컬럼({tf}): {available}"
+                )
+                return None
+
         # value가 있으면 상수 값
         elif "value" in value_def:
             return float(value_def["value"])
-        
-        # price 필드 참조 (예: {"price": "close"})
+
+        # price 필드 참조 (예: {"price": "close"}) — 항상 base TF 사용
         elif "price" in value_def:
             price_field = value_def["price"]
             bar = self.bars[bar_index]
-            
+
             if price_field == "open":
                 return bar.open
             elif price_field == "high":
@@ -357,7 +456,7 @@ class StrategyParser:
             else:
                 logger.warning(f"지원하지 않는 가격 필드: {price_field}")
                 return None
-        
+
         logger.warning(f"값 정의를 해석할 수 없습니다: {value_def}")
         return None
     
@@ -525,14 +624,10 @@ class StrategyParser:
                 logger.error(f"indicator_level 손절에 {direction} 참조가 없습니다")
                 return None
             
-            # 참조를 컬럼명으로 변환 (indicatorId.field → indicatorId_field)
-            column_name = self._parse_indicator_ref(ref)
-            
-            # 지표 값 가져오기
-            try:
-                stop_loss_value = self.indicator_calc.get_value(column_name, bar_index)
-            except ValueError as e:
-                logger.warning(f"손절 지표 값을 가져올 수 없습니다 (ref={ref}, column={column_name}): {e}")
+            # _get_value 재사용 — @tf 접미사와 HTF 매핑을 일관되게 처리
+            stop_loss_value = self._get_value({"ref": ref}, bar_index)
+            if stop_loss_value is None:
+                logger.warning(f"손절 지표 값을 가져올 수 없습니다 (ref={ref})")
                 return None
             
             # 방어 로직: 유효하지 않은 값 처리

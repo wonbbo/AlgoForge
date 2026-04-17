@@ -37,12 +37,16 @@ export interface StrategyDraft {
 export interface IndicatorDraft {
   // 고유 ID (사용자가 중복 불가하게 입력 또는 자동 생성)
   id: string;
-  
+
   // 지표 타입 (내장 지표 또는 커스텀 지표 타입)
   type: string;
-  
+
   // 파라미터 (지표 타입에 따라 다름)
   params: Record<string, any>;
+
+  // 타임프레임 (MTF 지원). 'base' 또는 '1m','5m','1h','1d' 등.
+  // 기본값은 'base'이며, 'base'가 아닌 값이면 백엔드로 보낼 때 ref에 @tf 접미사가 붙음.
+  timeframe?: string;
 }
 
 /**

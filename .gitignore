@@ -112,6 +112,7 @@ Desktop.ini
 
 # Logs
 *.log
+*.zip
 logs/
 *.log.*
 

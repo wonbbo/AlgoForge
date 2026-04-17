@@ -38,6 +38,10 @@ export default function RunsPage() {
   const [selectedStrategyId, setSelectedStrategyId] = useState<number | null>(null)
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null)
 
+  // MTF: 상위 타임프레임 데이터셋 매핑 ({'1h': 7, '1d': 8})
+  const [htfDatasetIds, setHtfDatasetIds] = useState<Record<string, number>>({})
+  const [showHtfSection, setShowHtfSection] = useState(false)
+
   useEffect(() => {
     loadData()
   }, [])
@@ -77,19 +81,23 @@ export default function RunsPage() {
 
     setCreating(true)
     try {
+      const htfPayload = Object.keys(htfDatasetIds).length > 0 ? htfDatasetIds : undefined
       const createdRun = await runApi.create({
         dataset_id: selectedDatasetId,
         strategy_id: selectedStrategyId,
         preset_id: selectedPresetId || undefined,
+        htf_dataset_ids: htfPayload,
       })
-      
+
       toast.success('Run이 생성되었습니다!', {
         description: `Run ID: ${createdRun.run_id} - 백테스트가 시작되었습니다.`
       })
-      
+
       setShowCreateForm(false)
       setSelectedDatasetId(null)
       setSelectedStrategyId(null)
+      setHtfDatasetIds({})
+      setShowHtfSection(false)
       // 기본 프리셋 다시 선택
       const defaultPreset = presets.find(p => p.is_default)
       if (defaultPreset) {
@@ -301,6 +309,57 @@ export default function RunsPage() {
                 )}
               </div>
 
+              {/* MTF: 상위 타임프레임 데이터셋 (선택) */}
+              <div className="space-y-2 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowHtfSection(!showHtfSection)}
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  {showHtfSection ? '▼' : '▶'} 멀티 타임프레임 데이터셋 (선택, MTF 전략용)
+                </button>
+
+                {showHtfSection && (
+                  <div className="space-y-2 p-3 bg-muted/50 rounded-md">
+                    <p className="text-xs text-muted-foreground">
+                      전략에서 <code>@1h</code>, <code>@1d</code> 등의 상위 타임프레임을 참조한다면,
+                      해당 TF의 데이터셋을 매핑하세요. 베이스 데이터셋과 같은 심볼/기간이어야 합니다.
+                    </p>
+                    {['5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d'].map(tf => {
+                      const baseDs = datasets.find(d => d.dataset_id === selectedDatasetId)
+                      if (baseDs?.timeframe === tf) return null
+                      const candidates = datasets.filter(d => d.timeframe === tf)
+                      const selected = htfDatasetIds[tf]
+                      return (
+                        <div key={tf} className="flex items-center gap-2">
+                          <Label className="w-16 text-xs">@{tf}</Label>
+                          <select
+                            value={selected ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setHtfDatasetIds(prev => {
+                                const next = { ...prev }
+                                if (val === '') delete next[tf]
+                                else next[tf] = Number(val)
+                                return next
+                              })
+                            }}
+                            className="flex-1 h-8 px-2 rounded-md border border-input bg-background text-xs"
+                          >
+                            <option value="">(사용 안 함)</option>
+                            {candidates.map(d => (
+                              <option key={d.dataset_id} value={d.dataset_id}>
+                                {d.name} ({d.bars_count.toLocaleString()} 봉)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end space-x-2">
                 <Button
                   type="button"
@@ -310,8 +369,8 @@ export default function RunsPage() {
                 >
                   취소
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={creating || !selectedDatasetId || !selectedStrategyId || !selectedPresetId}
                 >
                   {creating ? "생성 중..." : "실행"}

@@ -29,23 +29,41 @@ CREATE INDEX IF NOT EXISTS idx_indicators_category ON indicators(category);
 CREATE INDEX IF NOT EXISTS idx_indicators_implementation ON indicators(implementation_type);
 
 -- 내장 지표 기본 데이터 삽입 (중복 방지를 위해 OR IGNORE 사용)
+-- chart_config 규약:
+--   - overlay 지표(EMA, SMA): chart_name="main" (가격 차트 위 오버레이)
+--   - oscillator 지표(RSI, ATR, ADX, CCI): chart_name=지표 타입명 (별도 패널)
+--   - 다중 출력 지표(MACD): 모든 출력 필드를 동일한 패널("macd")에 표시
 INSERT OR IGNORE INTO indicators (
-    name, type, description, category, implementation_type, code, params_schema, output_fields, created_at, updated_at
+    name, type, description, category, implementation_type, code, params_schema, output_fields, chart_config, created_at, updated_at
 ) VALUES
     ('EMA', 'ema', 'Exponential Moving Average - 지수 이동 평균', 'trend', 'builtin', NULL,
      '{"source": "close", "period": 20}', '["main"]',
+     '{"main": {"chart_name": "main", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2}}}',
      strftime('%s', 'now'), strftime('%s', 'now')),
     ('SMA', 'sma', 'Simple Moving Average - 단순 이동 평균', 'trend', 'builtin', NULL,
      '{"source": "close", "period": 20}', '["main"]',
+     '{"main": {"chart_name": "main", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2}}}',
      strftime('%s', 'now'), strftime('%s', 'now')),
     ('RSI', 'rsi', 'Relative Strength Index - 상대 강도 지수', 'momentum', 'builtin', NULL,
      '{"source": "close", "period": 14}', '["main"]',
+     '{"main": {"chart_name": "rsi", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2}}}',
      strftime('%s', 'now'), strftime('%s', 'now')),
     ('ATR', 'atr', 'Average True Range - 평균 진폭', 'volatility', 'builtin', NULL,
      '{"period": 14}', '["main"]',
+     '{"main": {"chart_name": "atr", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2}}}',
      strftime('%s', 'now'), strftime('%s', 'now')),
     ('ADX', 'adx', 'Average Directional Index - 평균 방향성 지수', 'trend', 'builtin', NULL,
      '{"period": 14}', '["main"]',
+     '{"main": {"chart_name": "adx", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2}}}',
+     strftime('%s', 'now'), strftime('%s', 'now')),
+    ('MACD', 'macd', 'Moving Average Convergence Divergence - 이동평균 수렴 확산 지수', 'momentum', 'builtin', NULL,
+     '{"source": "close", "fast_period": 12, "slow_period": 26, "signal_period": 9}',
+     '["main", "signal", "histogram", "histogram_direction"]',
+     '{"main": {"chart_name": "macd", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2, "lineStyle": 0, "visible": true}}, "signal": {"chart_name": "macd", "type": "line", "properties": {"color": "#FF6D00", "lineWidth": 2, "lineStyle": 0, "visible": true}}, "histogram": {"chart_name": "macd", "type": "histogram", "properties": {"color": "#26A69A", "visible": true}}, "histogram_direction": {"chart_name": "macd", "type": "line", "properties": {"color": "#9E9E9E", "lineWidth": 1, "lineStyle": 0, "visible": false}}}',
+     strftime('%s', 'now'), strftime('%s', 'now')),
+    ('CCI', 'cci', 'Commodity Channel Index - 상품 채널 지수', 'momentum', 'builtin', NULL,
+     '{"period": 20, "constant": 0.015}', '["main"]',
+     '{"main": {"chart_name": "cci", "type": "line", "properties": {"color": "#2962FF", "lineWidth": 2, "lineStyle": 0, "visible": true}}}',
      strftime('%s', 'now'), strftime('%s', 'now'));
 
 -- datasets 테이블
@@ -53,6 +71,8 @@ CREATE TABLE IF NOT EXISTS datasets (
     dataset_id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
+    symbol TEXT NOT NULL DEFAULT 'XRPUSDT',       -- 종목 (기본: XRPUSDT)
+    market_type TEXT NOT NULL DEFAULT 'futures_um', -- 시장 타입: 'spot' | 'futures_um'
     timeframe TEXT NOT NULL DEFAULT '5m',
     dataset_hash TEXT NOT NULL UNIQUE,
     file_path TEXT NOT NULL,
@@ -61,6 +81,10 @@ CREATE TABLE IF NOT EXISTS datasets (
     end_timestamp INTEGER NOT NULL,
     created_at INTEGER NOT NULL
 );
+
+-- (symbol, market_type, timeframe) 조합 조회 최적화
+CREATE INDEX IF NOT EXISTS idx_datasets_symbol_market_tf
+    ON datasets(symbol, market_type, timeframe);
 
 -- strategies 테이블
 CREATE TABLE IF NOT EXISTS strategies (
@@ -189,6 +213,22 @@ INSERT OR IGNORE INTO run_config_presets (
      strftime('%s', 'now'), strftime('%s', 'now')),
     ('공격적', '높은 리스크, 표준 R:R (3% 리스크, 1.5 R:R)', 1000.0, 0.03, 1.5, 50, 0,
      strftime('%s', 'now'), strftime('%s', 'now'));
+
+-- run_datasets 정션 테이블 (멀티 타임프레임)
+-- 하나의 run이 role별로 서로 다른 dataset을 참조할 수 있음
+--   role 규약: 'base', 'htf_15m', 'htf_1h', 'htf_4h', 'htf_1d' 등
+CREATE TABLE IF NOT EXISTS run_datasets (
+    run_id INTEGER NOT NULL,
+    dataset_id INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    PRIMARY KEY (run_id, role),
+    UNIQUE (run_id, dataset_id, role),
+    FOREIGN KEY (run_id) REFERENCES runs(run_id) ON DELETE CASCADE,
+    FOREIGN KEY (dataset_id) REFERENCES datasets(dataset_id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_datasets_run ON run_datasets(run_id);
+CREATE INDEX IF NOT EXISTS idx_run_datasets_dataset ON run_datasets(dataset_id);
 
 -- 인덱스
 CREATE INDEX IF NOT EXISTS idx_runs_dataset ON runs(dataset_id);

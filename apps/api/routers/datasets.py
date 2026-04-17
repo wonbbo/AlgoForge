@@ -4,18 +4,22 @@ Dataset API Router
 데이터셋 업로드, 조회, 삭제 엔드포인트를 제공합니다.
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from typing import Optional
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from typing import Optional, Dict, Any
+from datetime import datetime
 import logging
 import os
 import time
+import uuid
 from pathlib import Path
 
 from apps.api.db.database import get_database
 from apps.api.db.repositories import DatasetRepository
 from apps.api.db.utils import load_bars_from_csv, calculate_dataset_hash, validate_bars
 from apps.api.schemas import DatasetCreate, DatasetResponse, DatasetList
+from apps.api.schemas.dataset import BinanceFetchRequest
 from apps.api.utils.exceptions import DatasetNotFoundError, InvalidDataError, DuplicateDataError
+from engine.data.binance.merger import fetch_binance_to_csv
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -23,6 +27,14 @@ logger = logging.getLogger(__name__)
 # 데이터셋 파일 저장 디렉토리
 DATASET_DIR = Path("datasets")
 DATASET_DIR.mkdir(exist_ok=True)
+
+# 바이낸스 아카이브 ZIP 캐시
+BINANCE_CACHE_DIR = Path("datasets/.binance_cache")
+BINANCE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# 바이낸스 fetch 작업 상태 (in-memory)
+# job_id -> {"status": "PENDING|RUNNING|COMPLETED|FAILED", "dataset_id": int?, "error": str?, "started_at": int, ...}
+_BINANCE_JOBS: Dict[str, Dict[str, Any]] = {}
 
 
 @router.post("", response_model=DatasetResponse, status_code=201)
@@ -230,4 +242,196 @@ async def delete_dataset(dataset_id: int):
     except Exception as e:
         logger.error(f"Failed to delete dataset {dataset_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"데이터셋 삭제 실패: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# 바이낸스 자동 수집
+# ---------------------------------------------------------------------------
+
+def _parse_date(s: str):
+    return datetime.strptime(s, "%Y-%m-%d").date()
+
+
+def _run_binance_fetch_job(
+    job_id: str,
+    req: BinanceFetchRequest,
+) -> None:
+    """백그라운드에서 바이낸스 데이터를 수집해 dataset으로 등록."""
+    job = _BINANCE_JOBS[job_id]
+    job["status"] = "RUNNING"
+    job["progress_message"] = "준비 중..."
+    temp_file_path: Optional[Path] = None
+    try:
+        start_d = _parse_date(req.start_date)
+        end_d = _parse_date(req.end_date)
+        if start_d > end_d:
+            raise ValueError(f"start_date > end_date: {start_d} > {end_d}")
+
+        # 임시 CSV 경로 (해시 확정 후 최종 이름으로 이동)
+        temp_file_path = DATASET_DIR / f"temp_binance_{int(time.time())}_{job_id}.csv"
+
+        logger.info(
+            f"[job {job_id}] 바이낸스 수집 시작: "
+            f"{req.symbol} {req.market_type} {req.timeframe} {start_d}~{end_d}"
+        )
+        job["progress_message"] = (
+            f"바이낸스에서 봉 다운로드 중 "
+            f"({req.symbol} {req.timeframe} {req.start_date}~{req.end_date})..."
+        )
+        rows = fetch_binance_to_csv(
+            symbol=req.symbol,
+            market_type=req.market_type,
+            interval=req.timeframe,
+            start_date=start_d,
+            end_date=end_d,
+            out_path=temp_file_path,
+            cache_dir=BINANCE_CACHE_DIR,
+        )
+        if rows == 0:
+            raise ValueError("수집된 봉이 0개입니다. 기간/심볼을 확인하세요.")
+
+        # 기존 업로드 파이프라인과 동일하게 검증·해시 계산
+        job["progress_message"] = f"봉 데이터 검증 중 ({rows:,}개)..."
+        bars, df, metadata = load_bars_from_csv(str(temp_file_path), include_df=True)
+        is_valid, errors = validate_bars(bars)
+        if not is_valid:
+            raise ValueError(f"봉 데이터 검증 실패: {errors}")
+
+        job["progress_message"] = "데이터셋 해시 계산 중..."
+        dataset_hash = calculate_dataset_hash(bars)
+
+        db = get_database()
+        repo = DatasetRepository(db)
+        existing = repo.get_by_hash(dataset_hash)
+        if existing:
+            # 동일 데이터가 이미 있으면 임시 파일만 정리 후 기존 dataset_id 반환
+            temp_file_path.unlink(missing_ok=True)
+            job["status"] = "COMPLETED"
+            job["dataset_id"] = existing["dataset_id"]
+            job["bars_count"] = metadata["bars_count"]
+            job["progress_message"] = "동일 해시 데이터셋이 이미 존재 — 기존 것 재사용"
+            job["note"] = "동일 해시 데이터셋이 이미 존재함 — 기존 dataset_id 재사용"
+            return
+
+        job["progress_message"] = "데이터셋 저장 중..."
+        final_file_path = DATASET_DIR / f"{dataset_hash}.csv"
+        temp_file_path.rename(final_file_path)
+
+        auto_name = req.name or (
+            f"{req.symbol}_{req.market_type}_{req.timeframe}_"
+            f"{req.start_date}_{req.end_date}"
+        )
+        dataset_id = repo.create(
+            name=auto_name,
+            dataset_hash=dataset_hash,
+            file_path=str(final_file_path),
+            bars_count=metadata["bars_count"],
+            start_timestamp=metadata["start_timestamp"],
+            end_timestamp=metadata["end_timestamp"],
+            description=req.description,
+            timeframe=req.timeframe,
+            symbol=req.symbol,
+            market_type=req.market_type,
+        )
+
+        job["status"] = "COMPLETED"
+        job["dataset_id"] = dataset_id
+        job["bars_count"] = metadata["bars_count"]
+        job["progress_message"] = f"완료 ({metadata['bars_count']:,}봉)"
+        logger.info(f"[job {job_id}] 완료 → dataset_id={dataset_id}, bars={rows}")
+
+    except Exception as e:
+        logger.error(f"[job {job_id}] 실패: {e}", exc_info=True)
+        job["status"] = "FAILED"
+        job["error"] = str(e)
+        if temp_file_path and temp_file_path.exists():
+            temp_file_path.unlink(missing_ok=True)
+
+
+@router.post("/binance", status_code=202)
+async def create_dataset_from_binance(
+    req: BinanceFetchRequest,
+    background_tasks: BackgroundTasks,
+):
+    """바이낸스에서 OHLCV를 자동 수집해 데이터셋으로 등록 (비동기).
+
+    아카이브(data.binance.vision)에서 대량 백필 + REST로 최근 봉 보완.
+    응답의 job_id로 `GET /datasets/binance/jobs/{job_id}` 폴링하여 진행 확인.
+    """
+    job_id = uuid.uuid4().hex[:12]
+    _BINANCE_JOBS[job_id] = {
+        "status": "PENDING",
+        "symbol": req.symbol,
+        "market_type": req.market_type,
+        "timeframe": req.timeframe,
+        "start_date": req.start_date,
+        "end_date": req.end_date,
+        "started_at": int(time.time()),
+    }
+    background_tasks.add_task(_run_binance_fetch_job, job_id, req)
+    return {"job_id": job_id, "status": "PENDING"}
+
+
+@router.get("/binance/jobs/{job_id}")
+async def get_binance_fetch_job(job_id: str):
+    """바이낸스 fetch 작업 상태 조회."""
+    job = _BINANCE_JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"job_id 없음: {job_id}")
+    return {"job_id": job_id, **job}
+
+
+@router.post("/{dataset_id}/refresh", status_code=202)
+async def refresh_dataset_from_binance(
+    dataset_id: int,
+    background_tasks: BackgroundTasks,
+    end_date: Optional[str] = None,
+):
+    """기존 데이터셋의 마지막 봉 이후부터 현재까지 바이낸스에서 증분 수집.
+
+    기존 데이터는 불변 (결정성 보장) — 새로운 dataset_id로 확장된 데이터셋 생성.
+    end_date 미지정 시 오늘(UTC) 기준.
+    """
+    db = get_database()
+    repo = DatasetRepository(db)
+    dataset = repo.get_by_id(dataset_id)
+    if not dataset:
+        raise DatasetNotFoundError(dataset_id)
+
+    # 기존 dataset의 symbol/market_type/timeframe을 기반으로 추가 수집
+    from datetime import timezone as _tz, timedelta as _td
+    last_dt = datetime.fromtimestamp(dataset["end_timestamp"], tz=_tz.utc)
+    next_day = (last_dt + _td(days=1)).date()
+    end_d_str = end_date or datetime.now(_tz.utc).date().isoformat()
+
+    if next_day.isoformat() > end_d_str:
+        raise HTTPException(
+            status_code=400,
+            detail=f"이미 최신 상태입니다 (last_end={last_dt.isoformat()})",
+        )
+
+    # 참고: 증분분만 담은 별도 dataset 생성 (기존 데이터와 분리해 추적)
+    # 결합된 데이터셋이 필요하면 별도 UI/엔드포인트에서 수동 병합
+    req = BinanceFetchRequest(
+        symbol=dataset["symbol"],
+        market_type=dataset["market_type"],
+        timeframe=dataset["timeframe"],
+        start_date=next_day.isoformat(),
+        end_date=end_d_str,
+        name=f"{dataset['name']}_refresh_{next_day.isoformat()}_{end_d_str}",
+        description=f"증분 수집 from dataset_id={dataset_id}",
+    )
+    job_id = uuid.uuid4().hex[:12]
+    _BINANCE_JOBS[job_id] = {
+        "status": "PENDING",
+        "symbol": req.symbol,
+        "market_type": req.market_type,
+        "timeframe": req.timeframe,
+        "start_date": req.start_date,
+        "end_date": req.end_date,
+        "started_at": int(time.time()),
+        "refresh_of": dataset_id,
+    }
+    background_tasks.add_task(_run_binance_fetch_job, job_id, req)
+    return {"job_id": job_id, "status": "PENDING", "refresh_of": dataset_id}
 
