@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Copy, Download, Trash2, Calendar, Hash, Edit } from 'lucide-react';
 import { strategyApi } from '@/lib/api-client';
 import type { Strategy } from '@/lib/types';
+import { formatTimestamp } from '@/lib/utils';
 
 /**
  * 전략 상세 페이지
@@ -91,18 +92,6 @@ export default function StrategyDetailPage() {
         description: error.message
       });
     }
-  };
-  
-  // 날짜 포맷팅 (Unix timestamp 밀리초 단위)
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
   
   if (isLoading) {
@@ -192,7 +181,7 @@ export default function StrategyDetailPage() {
                   <Calendar className="h-4 w-4" />
                   <span className="font-semibold">생성일</span>
                 </div>
-                <p className="text-sm">{formatDate(strategy.created_at)}</p>
+                <p className="text-sm">{formatTimestamp(strategy.created_at)}</p>
               </div>
             </div>
           </div>

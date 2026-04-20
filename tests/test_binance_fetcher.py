@@ -183,11 +183,11 @@ def test_compute_direction():
 
 
 @pytest.mark.unit
-def test_kline_to_csv_row_utc_format():
-    # 2024-06-01 00:00:00 UTC = 1717200000
+def test_kline_to_csv_row_kst_wall_clock():
+    # 1717200000000 ms = 2024-06-01 00:00:00 UTC → KST 2024-06-01 09:00:00
     k = _mk(1717200000000, o=0.5, h=0.6, l=0.4, c=0.55, v=100.0)
     row = _kline_to_csv_row(k)
-    assert row[0] == "2024-06-01 00:00:00"
+    assert row[0] == "2024-06-01 09:00:00"
     assert row[6] == 1  # close > open
 
 

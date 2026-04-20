@@ -7,8 +7,12 @@ import csv
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from engine.core.backtest_engine import BacktestEngine
+
+# CSV dt는 KST 벽시계 — 프로덕션 load_bars_from_csv와 동일하게 해석
+_KST = ZoneInfo("Asia/Seoul")
 from engine.core.metrics_calculator import MetricsCalculator
 from engine.models.bar import Bar
 
@@ -35,9 +39,10 @@ class TestBacktestEngine:
         with open(csv_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                # dt를 datetime 문자열에서 UNIX timestamp로 변환
+                # dt를 KST 벽시계 문자열에서 UNIX 초로 변환
                 dt_str = row['dt'].strip()
-                dt_obj = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+                dt_naive = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+                dt_obj = dt_naive.replace(tzinfo=_KST)
                 timestamp = int(dt_obj.timestamp())
                 
                 bar = Bar(

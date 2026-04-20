@@ -200,7 +200,7 @@ def download_archive_range(
         symbol: "XRPUSDT" 등 (대문자)
         market_type: "spot" | "futures_um"
         interval: "5m" 등 (VALID_INTERVALS)
-        start_date/end_date: 포함, UTC 날짜
+        start_date/end_date: 포함된 달력 날짜 (merger에서 KST 구간을 덮도록 UTC 일자로 변환해 전달)
         cache_dir: 다운로드 캐시 디렉토리 (재사용)
         timeout_sec: HTTP 타임아웃
 

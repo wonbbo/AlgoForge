@@ -13,9 +13,13 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 import json
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import pandas as pd
 
 from engine.models.bar import Bar
+
+# CSV dt 컬럼: KST 벽시계 (docs/timezone.md)
+_KST = ZoneInfo("Asia/Seoul")
 
 
 def calculate_dataset_hash(bars: List[Bar]) -> str:
@@ -77,7 +81,7 @@ def load_bars_from_csv(
     
     CSV 형식:
     - 헤더: dt,do,dh,dl,dc,dv,dd
-    - dt: UNIX timestamp (오름차순 정렬 필수)
+    - dt: 'YYYY-MM-DD HH:MM:SS' — **KST(Asia/Seoul)** 벽시계 (오름차순 정렬 필수)
     - do: 시가 (open)
     - dh: 고가 (high)
     - dl: 저가 (low)
@@ -116,11 +120,11 @@ def load_bars_from_csv(
         
         for row in reader:
             try:
-                # dt를 datetime 문자열에서 UNIX timestamp로 변환
-                # 형식: '2024-05-31 00:00:00'
+                # dt를 KST로 해석 → Unix 초(epoch)
                 dt_str = row['dt'].strip()
-                dt_obj = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
-                timestamp = int(dt_obj.timestamp())
+                dt_naive = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+                dt_kst = dt_naive.replace(tzinfo=_KST)
+                timestamp = int(dt_kst.timestamp())
                 
                 bar = Bar(
                     timestamp=timestamp,
@@ -229,8 +233,8 @@ def save_bars_to_csv(bars: List[Bar], file_path: str) -> None:
         
         # 데이터 작성
         for bar in sorted_bars:
-            # timestamp를 datetime 문자열로 변환
-            dt_str = datetime.fromtimestamp(bar.timestamp).strftime('%Y-%m-%d %H:%M:%S')
+            # 내부 epoch → CSV dt (KST 벽시계)
+            dt_str = datetime.fromtimestamp(bar.timestamp, tz=_KST).strftime('%Y-%m-%d %H:%M:%S')
             writer.writerow([
                 dt_str,
                 bar.open,

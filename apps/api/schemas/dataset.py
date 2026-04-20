@@ -48,8 +48,8 @@ class BinanceFetchRequest(BaseModel):
     symbol: str = Field(default="XRPUSDT", description="종목 심볼")
     market_type: MarketType = Field(default="futures_um", description="시장 타입")
     timeframe: str = Field(default="5m", description="타임프레임 (1m, 5m, 15m, 1h, 4h, 1d 등)")
-    start_date: str = Field(..., description="시작 날짜 'YYYY-MM-DD' (UTC)")
-    end_date: str = Field(..., description="종료 날짜 'YYYY-MM-DD' (UTC, 포함)")
+    start_date: str = Field(..., description="시작 날짜 'YYYY-MM-DD' (KST 달력)")
+    end_date: str = Field(..., description="종료 날짜 'YYYY-MM-DD' (KST 달력, 해당일 포함)")
     name: Optional[str] = Field(None, description="데이터셋 이름 (미지정 시 자동 생성)")
     description: Optional[str] = Field(None, description="설명")
 

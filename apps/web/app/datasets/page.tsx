@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Plus, Upload, Trash2, FileText, Download } from "lucide-react"
 import { datasetApi } from "@/lib/api-client"
 import type { Dataset, BinanceFetchJob } from "@/lib/types"
-import { formatDate } from "@/lib/utils"
+import { formatDate, todayIsoDateInKst } from "@/lib/utils"
 import {
   Table,
   TableBody,
@@ -41,6 +41,8 @@ export default function DatasetsPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [uploading, setUploading] = useState(false)
+  /** 다운로드 중인 dataset_id (중복 클릭 방지) */
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   // 공통 폼 상태 (이름/설명)
   const [name, setName] = useState("")
@@ -54,7 +56,7 @@ export default function DatasetsPage() {
   const [marketType, setMarketType] = useState<"spot" | "futures_um">("futures_um")
   const [timeframe, setTimeframe] = useState("5m")
   const [startDate, setStartDate] = useState("2024-01-01")
-  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10))
+  const [endDate, setEndDate] = useState(todayIsoDateInKst)
 
   // 바이낸스 Job 폴링 상태
   const [fetchJob, setFetchJob] = useState<BinanceFetchJob | null>(null)
@@ -179,6 +181,23 @@ export default function DatasetsPage() {
     }
   }
 
+  /**
+   * 원본 CSV 다운로드
+   */
+  async function handleDownload(dataset: Dataset) {
+    setDownloadingId(dataset.dataset_id)
+    try {
+      const safeName = `${dataset.name.replace(/[^\w\s가-힣.-]/g, '_')}.csv`
+      await datasetApi.downloadCsv(dataset.dataset_id, safeName)
+    } catch (error: unknown) {
+      console.error('Failed to download dataset:', error)
+      const message = error instanceof Error ? error.message : '다운로드에 실패했습니다'
+      alert(message)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* 헤더 */}
@@ -257,7 +276,7 @@ export default function DatasetsPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="start_date">시작 (UTC)</Label>
+                      <Label htmlFor="start_date">시작 (KST 달력)</Label>
                       <Input
                         id="start_date"
                         type="date"
@@ -267,7 +286,7 @@ export default function DatasetsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="end_date">종료 (UTC)</Label>
+                      <Label htmlFor="end_date">종료 (KST 달력, 포함)</Label>
                       <Input
                         id="end_date"
                         type="date"
@@ -354,7 +373,7 @@ export default function DatasetsPage() {
                       required
                     />
                     <p className="text-xs text-muted-foreground">
-                      CSV 파일 형식: dt (YYYY-MM-DD HH:MM:SS), do, dh, dl, dc, dv, dd
+                      CSV: dt는 KST(한국 표준시) YYYY-MM-DD HH:MM:SS, do, dh, dl, dc, dv, dd
                     </p>
                   </div>
 
@@ -417,7 +436,7 @@ export default function DatasetsPage() {
                 데이터셋이 없습니다
               </p>
               <Button onClick={() => setShowForm(true)}>
-                <Download className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4" />
                 첫 데이터셋 추가
               </Button>
             </div>
@@ -463,13 +482,25 @@ export default function DatasetsPage() {
                       {formatDate(dataset.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(dataset.dataset_id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="inline-flex items-center justify-end gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="CSV 다운로드"
+                          disabled={downloadingId === dataset.dataset_id}
+                          onClick={() => handleDownload(dataset)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="삭제"
+                          onClick={() => handleDelete(dataset.dataset_id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

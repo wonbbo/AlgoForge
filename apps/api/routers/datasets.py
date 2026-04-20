@@ -5,8 +5,10 @@ Dataset API Router
 """
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import logging
 import os
 import time
@@ -36,6 +38,8 @@ BINANCE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 # job_id -> {"status": "PENDING|RUNNING|COMPLETED|FAILED", "dataset_id": int?, "error": str?, "started_at": int, ...}
 _BINANCE_JOBS: Dict[str, Dict[str, Any]] = {}
 
+_KST = ZoneInfo("Asia/Seoul")
+
 
 @router.post("", response_model=DatasetResponse, status_code=201)
 async def create_dataset(
@@ -48,7 +52,7 @@ async def create_dataset(
     데이터셋 업로드 및 등록
     
     CSV 파일 형식:
-    - dt: datetime 문자열 'YYYY-MM-DD HH:MM:SS' (예: '2024-05-31 00:00:00')
+    - dt: KST(Asia/Seoul) 'YYYY-MM-DD HH:MM:SS' (예: '2024-05-31 09:00:00')
     - do: 시가 (open)
     - dh: 고가 (high)
     - dl: 저가 (low)
@@ -57,7 +61,7 @@ async def create_dataset(
     - dd: 봉 방향 (1=상승, -1=하락, 0=보합)
     
     Note:
-        dt는 내부적으로 UNIX timestamp로 변환되어 저장됩니다.
+        dt는 KST로 해석되어 UNIX timestamp(초)로 저장됩니다 (docs/timezone.md).
     
     Returns:
         DatasetResponse: 생성된 데이터셋 정보
@@ -176,6 +180,57 @@ async def get_datasets():
     except Exception as e:
         logger.error(f"Failed to get datasets: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"데이터셋 목록 조회 실패: {str(e)}")
+
+
+def _safe_download_filename(name: str, dataset_id: int) -> str:
+    """브라우저 다운로드용 파일명 (경로·특수문자 제거)."""
+    safe = "".join(c if c.isalnum() or c in ("-", "_", ".", " ") else "_" for c in (name or "dataset"))
+    safe = safe.strip() or f"dataset_{dataset_id}"
+    if not safe.lower().endswith(".csv"):
+        safe = f"{safe}.csv"
+    return safe
+
+
+@router.get("/{dataset_id}/download")
+async def download_dataset_csv(dataset_id: int):
+    """
+    데이터셋 원본 CSV 파일 다운로드.
+
+    file_path는 프로젝트 datasets/ 디렉터리 하위만 허용합니다.
+    """
+    try:
+        db = get_database()
+        repo = DatasetRepository(db)
+        dataset = repo.get_by_id(dataset_id)
+        if not dataset:
+            raise DatasetNotFoundError(dataset_id)
+
+        file_path = Path(dataset["file_path"]).resolve()
+        datasets_root = DATASET_DIR.resolve()
+        try:
+            file_path.relative_to(datasets_root)
+        except ValueError:
+            logger.warning("Download rejected: path outside datasets dir: %s", file_path)
+            raise HTTPException(status_code=403, detail="허용되지 않은 파일 경로입니다")
+
+        if not file_path.is_file():
+            raise HTTPException(status_code=404, detail="CSV 파일을 찾을 수 없습니다")
+
+        download_name = _safe_download_filename(dataset.get("name") or "", dataset_id)
+
+        return FileResponse(
+            path=str(file_path),
+            media_type="text/csv; charset=utf-8",
+            filename=download_name,
+            headers={"Cache-Control": "no-store"},
+        )
+    except DatasetNotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to download dataset %s: %s", dataset_id, str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"다운로드 실패: {str(e)}")
 
 
 @router.get("/{dataset_id}", response_model=DatasetResponse)
@@ -390,7 +445,7 @@ async def refresh_dataset_from_binance(
     """기존 데이터셋의 마지막 봉 이후부터 현재까지 바이낸스에서 증분 수집.
 
     기존 데이터는 불변 (결정성 보장) — 새로운 dataset_id로 확장된 데이터셋 생성.
-    end_date 미지정 시 오늘(UTC) 기준.
+    end_date 미지정 시 오늘(KST 달력) 기준.
     """
     db = get_database()
     repo = DatasetRepository(db)
@@ -398,16 +453,15 @@ async def refresh_dataset_from_binance(
     if not dataset:
         raise DatasetNotFoundError(dataset_id)
 
-    # 기존 dataset의 symbol/market_type/timeframe을 기반으로 추가 수집
-    from datetime import timezone as _tz, timedelta as _td
-    last_dt = datetime.fromtimestamp(dataset["end_timestamp"], tz=_tz.utc)
-    next_day = (last_dt + _td(days=1)).date()
-    end_d_str = end_date or datetime.now(_tz.utc).date().isoformat()
+    # 마지막 봉 시각(KST) 다음 날짜부터 수집
+    last_open_kst = datetime.fromtimestamp(dataset["end_timestamp"], tz=_KST)
+    next_day = last_open_kst.date() + timedelta(days=1)
+    end_d_str = end_date or datetime.now(_KST).date().isoformat()
 
     if next_day.isoformat() > end_d_str:
         raise HTTPException(
             status_code=400,
-            detail=f"이미 최신 상태입니다 (last_end={last_dt.isoformat()})",
+            detail=f"이미 최신 상태입니다 (last_end_kst={last_open_kst.isoformat()})",
         )
 
     # 참고: 증분분만 담은 별도 dataset 생성 (기존 데이터와 분리해 추적)

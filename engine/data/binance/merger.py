@@ -1,21 +1,29 @@
 """
 바이낸스 아카이브 + REST 결과를 병합해 AlgoForge CSV 포맷으로 저장.
 
-AlgoForge CSV 포맷 (기존과 동일):
+AlgoForge CSV 포맷:
   dt,do,dh,dl,dc,dv,dd
   2024-05-31 00:00:00,0.5231,0.5250,0.5215,0.5242,1234567.8,1
 
-- dt: UTC 기준 'YYYY-MM-DD HH:MM:SS'
+- dt: KST(Asia/Seoul) 벽시계 'YYYY-MM-DD HH:MM:SS' (docs/timezone.md 참고)
 - dd: 봉 방향 (close > open → 1, close < open → -1, else 0)
+
+수집 기간 start_date~end_date 는 KST 달력 기준(해당 일자 포함).
 """
 
 from __future__ import annotations
 
 import csv
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime
 from pathlib import Path
 from typing import List, Optional
+
+from engine.utils.timezone_kst import (
+    KST,
+    kst_day_bounds_ms,
+    utc_calendar_days_covering_kst_range,
+)
 
 from engine.data.binance.klines_archive import (
     RawKline,
@@ -36,7 +44,8 @@ def _compute_direction(o: float, c: float) -> int:
 
 
 def _kline_to_csv_row(k: RawKline) -> list:
-    dt = datetime.fromtimestamp(k.open_time_sec, tz=timezone.utc)
+    # 동일 순간을 KST 벽시계로 표기 (CSV 정책)
+    dt = datetime.fromtimestamp(k.open_time_sec, tz=KST)
     return [
         dt.strftime("%Y-%m-%d %H:%M:%S"),
         f"{k.open}",
@@ -78,19 +87,18 @@ def fetch_and_merge(
     if interval not in VALID_INTERVALS:
         raise ValueError(f"지원하지 않는 interval: {interval}")
 
+    # KST 달력 구간 → epoch ms, 아카이브 ZIP은 UTC 일자로 덮을 날짜 범위 계산
+    start_ms, end_ms = kst_day_bounds_ms(start_date, end_date)
+    archive_start, archive_end = utc_calendar_days_covering_kst_range(start_ms, end_ms)
+
     archive_klines = download_archive_range(
         symbol=symbol,
         market_type=market_type,
         interval=interval,
-        start_date=start_date,
-        end_date=end_date,
+        start_date=archive_start,
+        end_date=archive_end,
         cache_dir=cache_dir,
     )
-
-    # 요청 구간 경계 (UTC 밀리초)
-    start_ms = int(datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc).timestamp() * 1000)
-    end_dt = datetime.combine(end_date, datetime.min.time(), tzinfo=timezone.utc) + timedelta(days=1) - timedelta(milliseconds=1)
-    end_ms = int(end_dt.timestamp() * 1000)
 
     step_ms = INTERVAL_TO_MS[interval]
 

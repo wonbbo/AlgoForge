@@ -30,14 +30,14 @@ export function Navigation() {
       icon: Database,
     },
     {
-      href: "/strategies",
-      label: "전략",
-      icon: GitBranch,
-    },
-    {
       href: "/indicators",
       label: "지표",
       icon: Gauge,
+    },
+    {
+      href: "/strategies",
+      label: "전략",
+      icon: GitBranch,
     },
     {
       href: "/runs",
